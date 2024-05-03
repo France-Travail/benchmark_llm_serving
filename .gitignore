@@ -1,0 +1,12 @@
+.coverage
+.idea
+.vscode
+
+__pycache__
+dist
+build
+site
+
+*.pyc
+*.egg-info
+bandit_outputs.txt
