@@ -7,5 +7,5 @@ def get_package_version() -> str:
     Returns:
         str: version of the package
     '''
-    version = importlib_metadata.version("benchmark_llm_serving")
+    version = importlib.metadata.version("benchmark_llm_serving")
     return version
