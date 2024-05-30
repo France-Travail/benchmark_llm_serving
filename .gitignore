@@ -1,11 +1,13 @@
 .coverage
 .idea
 .vscode
+.env
 
 __pycache__
 dist
 build
 site
+results
 
 *.pyc
 *.egg-info
