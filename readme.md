@@ -20,11 +20,29 @@ pip install -e .
 
 ## Quickstart
 
-Launch the script bench_suite if you want a complete benchmarking of your API deployed via happy_vllm. This will launch several individual benchmarks which will be aggregated to draw graphs used to compare the models. All the results will be saved in the output folder
+Launch the script bench_suite.py via the entrypoint `bench-suite` if you want a complete benchmarking of your API deployed via happy_vllm. This will launch several individual benchmarks which will be aggregated to draw graphs used to compare the models. All the results will be saved in the output folder (by default `results`). 
 
-You can specify the launch arguments either via the CLI or a .env (see the .env.example for an example). If you cloned this repo and are benchmarking an API deployed via happy_vllm, you only need to specify the arguments base-url or the couple host/port. For example you can do :
+You can specify the launch arguments either via the CLI or a .env (see the `.env.example` for an example). If you cloned this repo and are benchmarking an API deployed via happy_vllm, you only need to specify the arguments `base-url` or the couple `host`/`port`. For example you can write :
 
-`python src/benchmark_llm_serving/bench_suite.py --host 127.0.0.1 --port 5000`
+`bench-suite --host 127.0.0.1 --port 5000`
+
+**Be careful**, with the default arguments (those written in `.env.example`) the whole bench suite can be quite long (around 15 hours).
+
+## Results
+
+After the bench suite ends, you obtain a folder containing :
+
+ - The results of all the benchmarks (in the folder `raw_results` )
+ - A folder `report` containing the aggregation of all the individual benchmarks. More specifically:
+   - `parameters.json` containing all the parameters for the bench, in particular, the arguments used to launch the `happy_vllm` API
+   - `prompt_ingestion_graph.png` containing the graph of the speed of prompt ingestion by the model. It is the time taken to produce the first token vs the length of the prompt. The speed is the slope of this line and is indicated in the title of the graph. The data used for this graph is contained in the `data` folder.
+   - `thresholds.csv` is a .csv containing, for each couple of input length/output length, the number of parallel requests such that : the kv cache usage is inferior to 100% and the speed generation is above a specified threshold (by default, 20 tokens per second)
+   - `total_speed_generation_graph.png` is a graph containing, for each couple of input length/output length, the total speed generation vs the number of parallel requests. So, for example, if the model can answer to 10 parallel requests each with a speed of 20 tokens per second, the value on the graph will be 200 tokens per second (20 x 10). The data used for this graph is contained in the `data` folder.
+   - A folder `kv_cache_profile` containing, for each couple of input length/output length, a graph showing the response of the LLMs to n requests launched at the same time. On the y-axis, you have the kv cache usage, the number of requests running and the number of requests waiting. On the x-axis, you have the time. The graph is obtained by sending one request, watching the response of the LLM then two requests, then three requests, ...
+   - A folder `speed_generation` containing, for each couple of input length/output length, a graph showing the speed generation (per request) in token per second vs the number of parallel requests. Two types of speed are shown, the first one is the usual speed generation ie the number of tokens divided by the time taken to generate them. The second one instead of the time taken to generate the token, we divide by this time minus all the waiting time of the requests (namely, the time taken for ingesting the prompt and for pausing when ingesting prompts for other requests or because the kv cache is full). On the graph is also shown the max kv cache usage for this number of parallel requests. The corresponding data is in the `data` folder
+
+Note that the various input lengths are "32", "1024" and "4096" to simulate small, medium and long prompt. These length are to be understood as roughly this size (and generally speaking a bit above this size). The various output lengths are 16, 128 and 1024. Contrary to the input lengths, these are exact : the model produced exactly this number of tokens.
+
 
 ## Launch arguments
 
@@ -48,3 +66,4 @@ Here is a list of the arguments:
  - `metrics-endpoint` : The endpoint for the metrics (default `/metrics/`)
  - `info-endpoint` : The info endpoint  (default `/v1/info`)
  - `launch-arguments-endpoint` : The endpoint for getting the launch arguments of the API (default `/v1/launch_arguments`)
+ - `speed-threshold` : The speed generation above which the model is considered ok (default value `20`). It is only useful when writing `thresholds.csv` 

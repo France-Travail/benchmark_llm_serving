@@ -12,6 +12,7 @@ from typing import List, Tuple, Union, Any
 from benchmark_llm_serving import utils
 from benchmark_llm_serving.utils_args import parse_args
 from benchmark_llm_serving.io_classes import QueryOutput, QueryInput
+from benchmark_llm_serving.query_profiles.query_functions import query_function
 from benchmark_llm_serving.query_profiles.constant_number import get_benchmark_results_constant_number
 from benchmark_llm_serving.query_profiles.growing_requests import get_benchmark_results_growing_requests
 from benchmark_llm_serving.query_profiles.scheduled_requests import get_benchmark_results_scheduled_requests
@@ -36,6 +37,16 @@ async def get_benchmark_results(queries_dataset: List[QueryInput], args: argpars
     """
     completions_url = args.base_url + args.completions_endpoint
     metrics_url = args.base_url + args.metrics_endpoint
+
+    # Make one query in order to be sure that everything is ok
+    payload = {"model": args.model,
+        "max_tokens": 2,
+        "min_tokens": 2,
+        "prompt": "Hey"}
+    response = requests.post(completions_url, json=payload, timeout=100)
+    status_code = response.status_code
+    if status_code != 200:
+        raise ValueError(f"The status code of the response is {status_code} instead of 200")
     
     if args.query_profile == "constant_number_of_queries":
         results, all_live_metrics = await get_benchmark_results_constant_number(queries_dataset, args, completions_url, metrics_url, logger)

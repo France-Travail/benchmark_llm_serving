@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from benchmark_llm_serving import utils
 from benchmark_llm_serving.io_classes import QueryInput
+from benchmark_llm_serving.make_graphs import draw_and_save_graphs
 from benchmark_llm_serving.benchmark import launch_benchmark, augment_dataset
 from benchmark_llm_serving.utils_args import get_parser_base_arguments, add_arguments_to_parser
 
@@ -66,6 +67,8 @@ class BenchmarkSettings(BaseSettings):
     dataset_folder: str = "datasets"
     output_folder: str = "results"
 
+    speed_threshold: float = 20.0
+
     step_live_metrics: float = 0.01
     max_queries: int = 1000
     max_duration_prompt_ingestion: int = 900
@@ -82,7 +85,7 @@ class BenchmarkSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra='ignore', protected_namespaces=('settings', ))
 
 def main():
-    # Define base arguments common to all benchmarks
+    # Define arguments for the bench_suite
     bench_settings = BenchmarkSettings()
     parser = get_parser_base_arguments()
     parser.add_argument("--output-folder", type=str, help="Path to the output folder")
@@ -91,6 +94,7 @@ def main():
     parser.add_argument("--max-duration-speed-generation", type=int, help="The max duration for the speed generation")
     parser.add_argument("--min-duration-speed-generation", type=int, help="The min duration for the speed generation")
     parser.add_argument("--target-queries-nb-speed_generation", type=int, help="The target_queries for the speed generation")
+    parser.add_argument("--speed-threshold", type=float, help="Accepted threshold for generation speed")
     parser.set_defaults(**bench_settings.model_dump())
 
     parser = add_arguments_to_parser(parser)
@@ -107,8 +111,9 @@ def main():
         current_directory = Path(os.path.dirname(os.path.realpath(__file__)))
         grand_parent_directory = current_directory.parent.parent.absolute()
         output_folder = os.path.join(grand_parent_directory, args.output_folder)
-    if not os.path.isdir(output_folder):
-        os.mkdir(output_folder)
+    raw_result_folder = os.path.join(output_folder, "raw_results")
+    if not os.path.isdir(raw_result_folder):
+        os.makedirs(raw_result_folder)
 
     input_lengths = ["32", "1024", "4096"]
     output_lengths = [16, 128, 1024]
@@ -145,7 +150,7 @@ def main():
     for i in range(4):
         now = utils.get_now()
         logger.info(f"{now} Benchmark for the prompt ingestion speed : instance {i} ")
-        args.output_file = os.path.join(output_folder, f"prompt_ingestion_{i}.json")
+        args.output_file = os.path.join(raw_result_folder, f"prompt_ingestion_{i}.json")
         dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
         launch_benchmark(args, dataset, suite_id)
         now = utils.get_now()
@@ -165,7 +170,7 @@ def main():
     for input_length, output_length in input_output_lengths:
         args.prompt_length = input_length
         args.output_length = output_length
-        args.output_file = os.path.join(output_folder, f"kv_cache_profile_input_{input_length}_output_{output_length}.json")
+        args.output_file = os.path.join(raw_result_folder, f"kv_cache_profile_input_{input_length}_output_{output_length}.json")
         now = utils.get_now()
         dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
         logger.info(f"{now} Beginning the benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length}")
@@ -194,7 +199,7 @@ def main():
                 args.prompt_length = input_length
                 args.output_length = output_length
                 args.n_workers = nb_constant_requests
-                args.output_file = os.path.join(output_folder, f"generation_speed_input_{input_length}_output_{output_length}_nb_requests_{nb_constant_requests}.json")
+                args.output_file = os.path.join(raw_result_folder, f"generation_speed_input_{input_length}_output_{output_length}_nb_requests_{nb_constant_requests}.json")
                 now = utils.get_now()
                 logger.info(f"{now} Benchmarks for the generation speed, input length : {input_length}, output_length : {output_length}, nb_requests : {nb_constant_requests}")
                 dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
@@ -208,6 +213,12 @@ def main():
         logger.info(f"{now} Benchmarks for the generation speed, input length : {input_length}, output_length : {output_length} : DONE")
     now = utils.get_now()
     logger.info(f"{now} Benchmarks for the generation speed : DONE")
+
+    now = utils.get_now()
+    logger.info(f"{now} Drawing graphs")
+    draw_and_save_graphs(output_folder, speed_threshold=args.speed_threshold)
+    now = utils.get_now()
+    logger.info(f"{now} Drawing graphs : DONE")
 
 
 if __name__ == "__main__":
