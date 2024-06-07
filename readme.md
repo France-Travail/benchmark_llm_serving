@@ -1,4 +1,10 @@
+# Benchmark LLM serving
+[![pypi badge](https://img.shields.io/pypi/v/benchmark_llm_serving.svg)](https://pypi.python.org/pypi/benchmark_llm_serving)
+[![Generic badge](https://img.shields.io/badge/python-3.10|3.11-blue.svg)](https://shields.io/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+![Build & Tests](https://github.com/OSS-Pole-Emploi/benchmark_llm_serving/actions/workflows/build_and_tests.yaml/badge.svg)
+![Wheel setup](https://github.com/OSS-Pole-Emploi/benchmark_llm_serving/actions/workflows/wheel.yaml/badge.svg)
 
 benchmark_llm_serving is a script aimed at benchmarking the serving API of LLMs. For now, it is focused on LLMs served via [vllm](https://github.com/vllm-project/vllm) and more specifically via [happy-vllm](https://github.com/OSS-Pole-Emploi/happy_vllm) which is an API layer on vLLM adding new endpoints and permitting a configuration via environment variables. 
 
