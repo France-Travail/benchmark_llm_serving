@@ -29,7 +29,7 @@ classifiers = [
 dynamic = ["version"]
 
 [project.urls]
-Repository = "https://github.com/OSS-Pole-Emploi/benchmark_llm_serving"
+Repository = "https://github.com/France-Travail/benchmark_llm_serving"
 
 
 [tool.setuptools.dynamic]

@@ -42,7 +42,7 @@ COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
 # Clone repository
-RUN git clone --no-checkout https://github.com/OSS-Pole-Emploi/benchmark_llm_serving.git
+RUN git clone --no-checkout https://github.com/France-Travail/benchmark_llm_serving.git
 WORKDIR benchmark_llm_serving
 RUN git lfs pull -I datasets/*.json
 
