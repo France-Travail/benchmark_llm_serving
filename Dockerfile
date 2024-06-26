@@ -20,7 +20,7 @@ ENV VIRTUAL_ENV="/opt/venv" PATH="/opt/venv/bin:${PATH}"
 WORKDIR /app
 
 # Install package
-COPY pyproject.toml setup.py readme.md requirements.txt version.txt /app
+COPY pyproject.toml setup.py README.md requirements.txt version.txt /app
 COPY src/benchmark_llm_serving /app/src/benchmark_llm_serving
 
 RUN python -m pip install -r requirements.txt && python -m pip install .
