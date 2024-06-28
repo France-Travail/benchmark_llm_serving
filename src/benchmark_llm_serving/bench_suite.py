@@ -81,6 +81,7 @@ class BenchmarkSettings(BaseSettings):
     completions_endpoint: str = "/v1/completions"
     metrics_endpoint: str = "/metrics/"
     info_endpoint: str = "/v1/info"
+    launch_arguments_endpoint: str = "/v1/launch_arguments"
 
     model_config = SettingsConfigDict(env_file=".env", extra='ignore', protected_namespaces=('settings', ))
 
