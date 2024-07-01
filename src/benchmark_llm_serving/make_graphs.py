@@ -28,6 +28,7 @@ class GraphsSettings(BaseSettings):
     """
     output_folder: str = "results"
     speed_threshold: float = 20.0
+    min_number_of_valid_queries: int = 50
 
     model_config = SettingsConfigDict(env_file=".env", extra='ignore', protected_namespaces=('settings', ))
 
@@ -407,7 +408,8 @@ def save_common_parameters(files: dict, report_folder: str, gpu_name: str):
         json.dump(common_parameters, json_file, indent=4)
 
 
-def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0, gpu_name: Union[str, None] = None):
+def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0, gpu_name: Union[str, None] = None,
+                         min_number_of_valid_queries: int = 50):
     """Draws and saves all the graphs and corresponding data for benchmark results 
     obtained via bench_suite.py
 
@@ -443,7 +445,7 @@ def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0, gpu_
             with open(os.path.join(raw_result_folder, filename), 'r') as json_file:
                 files[filename] = json.load(json_file)
     files = {key: value for key, value in files.items() 
-             if value['general_metrics']['total_number_of_queries'] - value['general_metrics']['nb_errored_queries'] + value['general_metrics']['nb_timeout_queries'] > 50}
+             if value['general_metrics']['total_number_of_queries'] - value['general_metrics']['nb_errored_queries'] + value['general_metrics']['nb_timeout_queries'] >= min_number_of_valid_queries}
     
     now = utils.get_now()
     logger.info(f"{now} Making prompt ingestion graph")
@@ -467,7 +469,9 @@ if __name__ == "__main__":
     parser.add_argument("--output-folder", type=str, help="Path to the output folder")
     parser.add_argument("--speed-threshold", type=float, default=20.0, help="Accepted threshold for generation speed")
     parser.add_argument("--gpu-name", help="The name of the GPU")
+    parser.add_argument("--min-number-of-valid-queries", type=int, help="The minimal number of queries needed to consider a file for drawing the graphs")
     graph_settings = GraphsSettings()
     parser.set_defaults(**graph_settings.model_dump())
     args = parser.parse_args()
-    draw_and_save_graphs(output_folder=args.output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name)
+    draw_and_save_graphs(output_folder=args.output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name,
+                        min_number_of_valid_queries=args.min_number_of_valid_queries)

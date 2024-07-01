@@ -81,6 +81,8 @@ class BenchmarkSettings(BaseSettings):
     min_duration_speed_generation: int = 60
     target_queries_nb_speed_generation: int = 100
 
+    min_number_of_valid_queries: int = 50
+
     backend: str = "happy_vllm"
     completions_endpoint: str = "/v1/completions"
     metrics_endpoint: str = "/metrics/"
@@ -100,6 +102,7 @@ def main():
     parser.add_argument("--min-duration-speed-generation", type=int, help="The min duration for the speed generation")
     parser.add_argument("--target-queries-nb-speed_generation", type=int, help="The target_queries for the speed generation")
     parser.add_argument("--speed-threshold", type=float, help="Accepted threshold for generation speed")
+    parser.add_argument("--min-number-of-valid-queries", type=int, help="The minimal number of queries needed to consider a file for drawing the graphs")
     parser.set_defaults(**bench_settings.model_dump())
 
     parser = add_arguments_to_parser(parser)
@@ -221,7 +224,8 @@ def main():
 
     now = utils.get_now()
     logger.info(f"{now} Drawing graphs")
-    draw_and_save_graphs(output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name)
+    draw_and_save_graphs(output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name,
+                        min_number_of_valid_queries=args.min_number_of_valid_queries)
     now = utils.get_now()
     logger.info(f"{now} Drawing graphs : DONE")
 
