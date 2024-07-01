@@ -38,7 +38,7 @@ You can specify the launch arguments either via the CLI or a .env (see the `.env
 
 After the bench suite ends, you obtain a folder containing :
 
- - The results of all the benchmarks (in the folder `raw_results` )
+ - The results of all the benchmarks (in the zip file `raw_results.zip`)
  - A folder `report` containing the aggregation of all the individual benchmarks. More specifically:
    - `parameters.json` containing all the parameters for the bench, in particular, the arguments used to launch the `happy_vllm` API
    - `prompt_ingestion_graph.png` containing the graph of the speed of prompt ingestion by the model. It is the time taken to produce the first token vs the length of the prompt. The speed is the slope of this line and is indicated in the title of the graph. The data used for this graph is contained in the `data` folder.
@@ -60,6 +60,7 @@ Here is a list of the arguments:
  - `port` : The port of the API (if you specify a base-url, you don't need to specify a port)
  - `dataset-folder` : The folder where the datasets for querying the API are (by default, it is in `datasets`)
  - `output-folder` : The folder where the results will be written (by default in the `results` folder)
+ - `gpu-name`: The name of the GPU on which the model is
  - `step-live-metrics` : The time, in second, between two querying of the `/metrics/` endpoint of happy_vllm (default `0.01`)
  - `max-queries` : The maximal number of query for each bench (default `1000`)
  - `max-duration-prompt-ingestion` : The max duration (in seconds) for the execution of an individual script benchmarking the prompt ingestion ( default `900`)

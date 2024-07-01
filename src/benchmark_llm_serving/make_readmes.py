@@ -36,7 +36,7 @@ def get_max_tokens_in_kv_cache(output_folder: str) -> int:
         # Extrapolated max number of tokens in the KV cache
         max_tokens_in_kv =  int(mean_tokens_per_query * nb_requests / max_cache_usage_perc)
         max_tokens_in_kv_cache_list.append(max_tokens_in_kv)
-    return np.median(max_tokens_in_kv_cache_list)
+    return int(np.median(max_tokens_in_kv_cache_list))
 
 
 def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str) -> MdUtils:
@@ -169,9 +169,10 @@ def make_readme(output_folder: str) -> None:
         parameters = json.load(json_file)
     
     model_name = parameters['model']
+    gpu_name = parameters['gpu_name']
 
 
-    mdfile = MdUtils(file_name=output_file,title=f"Model card for {model_name}")
+    mdfile = MdUtils(file_name=output_file,title=f"Model card for {model_name} on {gpu_name}")
     mdfile = add_summary_section(mdfile, output_folder, report_folder)
     mdfile = add_total_generation_speed_section(mdfile)
     mdfile = add_generation_speed_section(mdfile)
