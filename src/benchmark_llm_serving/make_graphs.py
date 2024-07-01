@@ -460,7 +460,7 @@ def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Benchmark script")
+    parser = argparse.ArgumentParser(description="Graphs script")
     parser.add_argument("--output-folder", type=str, help="Path to the output folder")
     parser.add_argument("--speed-threshold", type=float, default=20.0, help="Accepted threshold for generation speed")
     graph_settings = GraphsSettings()
