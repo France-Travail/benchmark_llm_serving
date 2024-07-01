@@ -6,22 +6,15 @@ from mdutils import Html
 from mdutils.mdutils import MdUtils
 
 
-# def get_max_tokens_in_kv_cache(output_folder):
-#     raw_result_folder = os.path.join(output_folder, "raw_results")
-#     for filename in list(os.walk(raw_result_folder))[0][2]:
-#         if "kv_cache_profile" in filename:
-#             path = os.path.join(raw_result_folder, filename)
-#             with open(path, 'r') as json_file:
-#                 kv_cache_profile = json.load(json_file)
-#             output_size = kv_cache_profile["parameters"]["output_length"]
-#             input_size = int(kv_cache_profile["parameters"]["prompt_length"])
-#             kv_cache_profile_list = kv_cache_profile['kv_cache_profile']
-#             kv_cache_profile_list = sorted(kv_cache_profile_list, key=lambda x: x["gpu_cache_usage_perc"]) 
-#             max_kv_cache_result = kv_cache_profile_list[-1]
-#             max_cache_usage_perc = max_kv_cache_result["gpu_cache_usage_perc"]
-#             nb_requests = max_kv_cache_result["num_requests_running"]
-#             print(input_size, output_size, nb_requests*(output_size+input_size)/max_cache_usage_perc)
-def get_max_tokens_in_kv_cache(output_folder):
+def get_max_tokens_in_kv_cache(output_folder: str) -> int:
+    """Calculates the maximum number of tokens the KV cache can contain. 
+
+    Args:
+        output_folder (str) : The folder which contain all the results
+
+    Returns:
+        int : The number of tokens the KV cache can contain 
+    """
     raw_result_folder = os.path.join(output_folder, "raw_results")
     all_raw_filenames = list(os.walk(raw_result_folder))[0][2]
     kv_cache_filenames = [filename for filename in all_raw_filenames if "kv_cache_profile" in filename]
@@ -41,12 +34,22 @@ def get_max_tokens_in_kv_cache(output_folder):
         max_cache_usage_perc = max_kv_cache_result["gpu_cache_usage_perc"]
         nb_requests = max_kv_cache_result["num_requests_running"]
         # Extrapolated max number of tokens in the KV cache
-        max_tokens_in_kv =  mean_tokens_per_query * nb_requests / max_cache_usage_perc
+        max_tokens_in_kv =  int(mean_tokens_per_query * nb_requests / max_cache_usage_perc)
         max_tokens_in_kv_cache_list.append(max_tokens_in_kv)
     return np.median(max_tokens_in_kv_cache_list)
 
 
-def add_summary_section(mdfile, output_folder, report_folder):
+def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str) -> MdUtils:
+    """Adds the summary section to the readme.
+
+    Args:
+        mdfile (MdUtils) : The future readme
+        output_folder (str) : The folder which contain all the results
+        report_folder (str) : The folder containing the report
+
+    Returns:
+        MdUtils : The future readme
+    """
     prompt_ingestion_file = os.path.join(report_folder, "data", "prompt_ingestion_graph_data.json")
     with open(prompt_ingestion_file, 'r') as json_file:
         prompt_ingestion = json.load(json_file)
@@ -86,7 +89,15 @@ def add_summary_section(mdfile, output_folder, report_folder):
     return mdfile
 
 
-def add_total_generation_speed_section(mdfile):
+def add_total_generation_speed_section(mdfile: MdUtils) -> MdUtils:
+    """Adds the total generation speed section to the readme
+
+    Args:
+        mdfile (MdUtils) : The future readme
+
+    Returns:
+        MdUtils : The future readme
+    """
     mdfile.new_header(level=1, title='Total generation speed')
     mdfile.new_paragraph("The following graph shows the total throughput with respect to "
                         "the number of parallel queries for different scenarii :")
@@ -96,7 +107,15 @@ def add_total_generation_speed_section(mdfile):
     return mdfile
 
 
-def add_generation_speed_section(mdfile):
+def add_generation_speed_section(mdfile: MdUtils) -> MdUtils:
+    """Adds the generation speed section to the readme
+
+    Args:
+        mdfile (MdUtils) : The future readme
+
+    Returns:
+        MdUtils : The future readme
+    """
     mdfile.new_header(level=1, title='Generation speed and latency')
     mdfile.new_paragraph("The following graphs shows the throughput for each request "
                         "with respect to the number of parallel queries. It also shows "
@@ -113,7 +132,16 @@ def add_generation_speed_section(mdfile):
     return mdfile
 
 
-def add_parameters_section(mdfile, parameters):
+def add_parameters_section(mdfile: MdUtils, parameters: dict) -> MdUtils:
+    """Adds the parameters section to the readme
+
+    Args:
+        mdfile (MdUtils) : The future readme
+        parameters (dict) : The launch parameters
+
+    Returns:
+        MdUtils : The future readme
+    """
     # Parameters table
     mdfile.new_header(level=1, title='Parameters')
     mdfile.new_paragraph("The api from happy_vllm was launched using the following arguments : ")
@@ -128,7 +156,12 @@ def add_parameters_section(mdfile, parameters):
     return mdfile
 
 
-def make_readme(output_folder):
+def make_readme(output_folder: str) -> None:
+    """Writes the readme
+
+    Args:
+        output_folder (str) : The folder which contain all the results
+    """
     report_folder = os.path.join(output_folder, "report")
     output_file = os.path.join(report_folder, "README.md")
     parameters_file = os.path.join(report_folder, "parameters.json")
