@@ -73,3 +73,5 @@ Here is a list of the arguments:
  - `info-endpoint` : The info endpoint  (default `/v1/info`)
  - `launch-arguments-endpoint` : The endpoint for getting the launch arguments of the API (default `/v1/launch_arguments`)
  - `speed-threshold` : The speed generation above which the model is considered ok (default value `20`). It is only useful when writing `thresholds.csv` 
+
+ test
