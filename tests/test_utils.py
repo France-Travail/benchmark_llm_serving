@@ -29,13 +29,6 @@ def test_get_now():
     assert now[17] == ':'
 
 
-def test_get_data_path():
-    data_path = utils.get_data_path()
-    assert isinstance(data_path, Path)
-    assert data_path.is_dir()
-    assert data_path.name == "datasets"
-
-
 def test_load_dataset():
     current_directory = Path(os.path.dirname(os.path.realpath(__file__)))
     dataset_folder = current_directory / "data"

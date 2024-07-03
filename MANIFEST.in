@@ -1,0 +1,9 @@
+include version.txt
+include src/benchmark_llm_serving/datasets/growing_prompts.json
+include src/benchmark_llm_serving/datasets/prompts_length_32.json
+include src/benchmark_llm_serving/datasets/prompts_length_128.json
+include src/benchmark_llm_serving/datasets/prompts_length_256.json
+include src/benchmark_llm_serving/datasets/prompts_length_512.json
+include src/benchmark_llm_serving/datasets/prompts_length_1024.json
+include src/benchmark_llm_serving/datasets/prompts_length_2048.json
+include src/benchmark_llm_serving/datasets/prompts_length_4096.json

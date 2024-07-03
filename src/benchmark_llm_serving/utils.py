@@ -27,20 +27,6 @@ def get_now() -> str:
     return now.strftime("%Y-%m-%d, %H:%M:%S")
 
 
-def get_data_path() -> Path:
-    '''Returns the path to the data folder
-
-    Returns:
-        str: Path of the data folder
-    '''
-    current_directory = Path(os.path.dirname(os.path.realpath(__file__)))
-    grand_parent_directory = current_directory.parent.parent.absolute()
-    data_path = grand_parent_directory / "datasets"
-    if not os.path.isdir(data_path):
-        os.mkdir(data_path)
-    return data_path
-
-
 def load_dataset(dataset_folder: Union[Path, str, None] = None,
                  prompt_length: str = "0") -> List[str]:
     """Loads a dataset and shuffles it
@@ -52,8 +38,6 @@ def load_dataset(dataset_folder: Union[Path, str, None] = None,
     Returns:
         list : The list of all the prompts
     """
-    if dataset_folder is None:
-        dataset_folder = get_data_path()
     if prompt_length == "0":
         filename = "growing_prompts.json"
     else:
