@@ -4,8 +4,8 @@ import json
 import logging
 import argparse
 import numpy as np
-from typing import Any
 from pathlib import Path
+from typing import Any, Union
 from matplotlib import pyplot as plt
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,6 +28,7 @@ class GraphsSettings(BaseSettings):
     """
     output_folder: str = "results"
     speed_threshold: float = 20.0
+    min_number_of_valid_queries: int = 50
 
     model_config = SettingsConfigDict(env_file=".env", extra='ignore', protected_namespaces=('settings', ))
 
@@ -79,7 +80,7 @@ def make_prompt_ingestion_graph(files: dict, report_folder: str) -> None:
 
     plt.title(f"Model : {model_name} \n Prompt ingestion speed : {prompt_ingestion_coefficient} tokens per second", fontsize='16')
     # Save plot
-    plt.savefig(os.path.join(report_folder, 'prompt_ingestion_graph.png'),bbox_inches='tight',dpi=200)
+    plt.savefig(os.path.join(report_folder, 'prompt_ingestion_graph.png'),bbox_inches='tight',dpi=75)
 
     # Save data
     graph_data = {"fit_coefficients": list(second_fit_coefficients),
@@ -189,7 +190,7 @@ def make_speed_generation_graph_for_one_input_output(input_length: int, output_l
 
     plt.title(f"Model : {model_name} \n Speed generation | input length: {input_length} | output length : {output_length}", fontsize='16')
     # Save graph
-    plt.savefig(os.path.join(report_folder, "speed_generation", f'speed_generation_graph_input_{input_length}_output_{output_length}.png'), bbox_inches='tight',dpi=200)
+    plt.savefig(os.path.join(report_folder, "speed_generation", f'speed_generation_graph_input_{input_length}_output_{output_length}.png'), bbox_inches='tight',dpi=75)
 
     # Save data
     with open(os.path.join(report_folder, "speed_generation", "data", f"speed_generation_graph_data_input_{input_length}_output_{output_length}.json"), 'w') as json_file:
@@ -288,7 +289,7 @@ def make_kv_cache_profile_graph_for_one_input_output(input_length: int, output_l
 
     plt.title(f"Model : {model_name} \n KV cache profile | input length: {input_length} | output length : {output_length}", fontsize='16')
     # Save graph
-    plt.savefig(os.path.join(report_folder, "kv_cache_profile", f'graph_kv_cache_profile_input_{input_length}_output_{output_length}.png'), bbox_inches='tight',dpi=200)
+    plt.savefig(os.path.join(report_folder, "kv_cache_profile", f'graph_kv_cache_profile_input_{input_length}_output_{output_length}.png'), bbox_inches='tight',dpi=75)
 
 
 def make_kv_cache_profile_graphs(files: dict, report_folder: str) -> None:
@@ -368,7 +369,7 @@ def make_total_speed_generation_graph(files: dict, report_folder: str) -> None:
     
     plt.legend()
 
-    plt.savefig(os.path.join(report_folder, f'total_speed_generation_graph.png'), bbox_inches='tight',dpi=200)
+    plt.savefig(os.path.join(report_folder, f'total_speed_generation_graph.png'), bbox_inches='tight',dpi=75)
 
 
     # Save data
@@ -381,12 +382,13 @@ def make_total_speed_generation_graph(files: dict, report_folder: str) -> None:
         json.dump(data_to_save, json_file, indent=4)
 
 
-def save_common_parameters(files: dict, report_folder: str):
+def save_common_parameters(files: dict, report_folder: str, gpu_name: str):
     """Saves the common parameters of all the benchmarks.
 
     Args:
         files (dict) : The files containing the results of the benchmarks
         report_folder (str) : The folder where the report should be written
+        gpu_name (str) : The name of the GPU
     """
     common_parameters: dict[str, Any] = {}
     for results in files.values():
@@ -400,18 +402,21 @@ def save_common_parameters(files: dict, report_folder: str):
                 if key in common_parameters:
                     if value != common_parameters[key]:
                         common_parameters.pop(key)
+    common_parameters["gpu_name"] = gpu_name
 
     with open(os.path.join(report_folder, 'parameters.json'), 'w') as json_file:
         json.dump(common_parameters, json_file, indent=4)
 
 
-def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0):
+def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0, gpu_name: Union[str, None] = None,
+                         min_number_of_valid_queries: int = 50):
     """Draws and saves all the graphs and corresponding data for benchmark results 
     obtained via bench_suite.py
 
     Args:
         output_folder (str) : The folder where the results of the benchmarks are
         speed_threshold (float) : The accepted speed generation to fix the threshold
+        gpu_name (str) : The name of the gpu
     """
     # Manage output path
     if not os.path.isabs(output_folder):
@@ -440,7 +445,7 @@ def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0):
             with open(os.path.join(raw_result_folder, filename), 'r') as json_file:
                 files[filename] = json.load(json_file)
     files = {key: value for key, value in files.items() 
-             if value['general_metrics']['total_number_of_queries'] - value['general_metrics']['nb_errored_queries'] + value['general_metrics']['nb_timeout_queries'] > 50}
+             if value['general_metrics']['total_number_of_queries'] - value['general_metrics']['nb_errored_queries'] + value['general_metrics']['nb_timeout_queries'] >= min_number_of_valid_queries}
     
     now = utils.get_now()
     logger.info(f"{now} Making prompt ingestion graph")
@@ -454,16 +459,19 @@ def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0):
     now = utils.get_now()
     logger.info(f"{now} Making total speed generation graph")
     make_total_speed_generation_graph(files, report_folder)
-    save_common_parameters(files, report_folder)
+    save_common_parameters(files, report_folder, gpu_name)
     now = utils.get_now()
     logger.info(f"{now} Graphs done")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Benchmark script")
+    parser = argparse.ArgumentParser(description="Graphs script")
     parser.add_argument("--output-folder", type=str, help="Path to the output folder")
     parser.add_argument("--speed-threshold", type=float, default=20.0, help="Accepted threshold for generation speed")
+    parser.add_argument("--gpu-name", help="The name of the GPU")
+    parser.add_argument("--min-number-of-valid-queries", type=int, help="The minimal number of queries needed to consider a file for drawing the graphs")
     graph_settings = GraphsSettings()
     parser.set_defaults(**graph_settings.model_dump())
     args = parser.parse_args()
-    draw_and_save_graphs(output_folder=args.output_folder, speed_threshold=args.speed_threshold)
+    draw_and_save_graphs(output_folder=args.output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name,
+                        min_number_of_valid_queries=args.min_number_of_valid_queries)

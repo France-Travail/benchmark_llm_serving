@@ -38,7 +38,7 @@ You can specify the launch arguments either via the CLI or a .env (see the `.env
 
 After the bench suite ends, you obtain a folder containing :
 
- - The results of all the benchmarks (in the folder `raw_results` )
+ - The results of all the benchmarks (in the zip file `raw_results.zip`)
  - A folder `report` containing the aggregation of all the individual benchmarks. More specifically:
    - `parameters.json` containing all the parameters for the bench, in particular, the arguments used to launch the `happy_vllm` API
    - `prompt_ingestion_graph.png` containing the graph of the speed of prompt ingestion by the model. It is the time taken to produce the first token vs the length of the prompt. The speed is the slope of this line and is indicated in the title of the graph. The data used for this graph is contained in the `data` folder.
@@ -60,6 +60,7 @@ Here is a list of the arguments:
  - `port` : The port of the API (if you specify a base-url, you don't need to specify a port)
  - `dataset-folder` : The folder where the datasets for querying the API are (by default, it is in `datasets`)
  - `output-folder` : The folder where the results will be written (by default in the `results` folder)
+ - `gpu-name`: The name of the GPU on which the model is (default `None`)
  - `step-live-metrics` : The time, in second, between two querying of the `/metrics/` endpoint of happy_vllm (default `0.01`)
  - `max-queries` : The maximal number of query for each bench (default `1000`)
  - `max-duration-prompt-ingestion` : The max duration (in seconds) for the execution of an individual script benchmarking the prompt ingestion ( default `900`)
@@ -67,6 +68,7 @@ Here is a list of the arguments:
  - `max-duration-speed-generation` : The max duration (in seconds) for the execution of an individual script benchmarking the speed generation ( default `900`). It is also the max duration permitted for the launch of all the scripts benchmarking the speed generation for a given couple of input length/output length.
  - `min-duration-speed-generation` : For each individual script benchmarking the speed generation, if this min duration (in seconds) is reached and the target-queries-nb is also reached, the script will end (default `60`)
  - `target-queries-nb-speed-generation` : For each individual script benchmarking the speed generation, if this target-queries-nb is reached and the min-duration is also reached, the script will end (default `100`)
+ - `min-number-of-valid-queries`: The minimal number of valid queries that should be present in a file to be considered for graph drawing (default `50`)
  - `backend` : For now, only happy_vllm is supported. 
  - `completions-endpoint` : The endpoint for completions (default `/v1/completions`)
  - `metrics-endpoint` : The endpoint for the metrics (default `/metrics/`)

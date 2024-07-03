@@ -1,0 +1,17 @@
+{
+    "general_metrics": {
+        "total_number_of_ingested_tokens": 1000,
+        "total_number_of_generated_tokens": 9000,
+        "total_number_of_queries": 100
+    },
+    "kv_cache_profile": [
+        {
+            "gpu_cache_usage_perc": 0.1,
+            "num_requests_running": 10
+        },
+        {
+            "gpu_cache_usage_perc": 0.2,
+            "num_requests_running": 5
+        }
+    ]
+}
