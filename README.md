@@ -10,19 +10,20 @@ benchmark_llm_serving is a script aimed at benchmarking the serving API of LLMs.
 
 ## Installation
 
-You can install benchmark_llm_serving using pip:
-
-```bash
-pip install benchmark_llm_serving
-```
-
-Or build it from source:
+It is advised to clone the repository in order to get the datasets used for the benchmarks (you can find them in `src/benchmark_llm_serving/datasets`) and build it from source:
 
 ```bash
 git clone https://github.com/France-Travail/benchmark_llm_serving.git
 cd benchmark_llm_serving
 pip install -e .
 ```
+
+You can also install benchmark_llm_serving using pip:
+
+```bash
+pip install benchmark_llm_serving
+```
+and download the datasets directly from the repository
 
 ## Quickstart
 
