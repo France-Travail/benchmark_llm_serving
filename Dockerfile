@@ -30,8 +30,8 @@ FROM python:3.11-slim-bookworm
 COPY prebuildfs /
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install python common and git-lfs
-RUN install_packages software-properties-common git-lfs
+# Install python common
+RUN install_packages software-properties-common
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -41,12 +41,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
-# Clone repository
-RUN git clone --no-checkout https://github.com/France-Travail/benchmark_llm_serving.git
-WORKDIR benchmark_llm_serving
-RUN git lfs pull -I datasets/*.json
 
 COPY src/benchmark_llm_serving/bench_suite.py /app
-ENV DATASET_FOLDER="/app/benchmark_llm_serving/datasets"
+ENV DATASET_FOLDER="/app/src/benchmark_llm_serving/datasets"
 
 CMD ["python", "/app/bench_suite.py"]

@@ -68,7 +68,7 @@ class BenchmarkSettings(BaseSettings):
 
     gpu_name: Optional[str] = None
 
-    dataset_folder: str = "datasets"
+    dataset_folder: str = "src/benchmark_llm_serving/datasets"
     output_folder: str = "results"
 
     speed_threshold: float = 20.0

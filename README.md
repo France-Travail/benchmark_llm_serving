@@ -58,7 +58,7 @@ Here is a list of the arguments:
  - `base-url` : The base url for the API you want to benchmark
  - `host` : The host of the API (if you specify a base-url, you don't need to specify a host)
  - `port` : The port of the API (if you specify a base-url, you don't need to specify a port)
- - `dataset-folder` : The folder where the datasets for querying the API are (by default, it is in `datasets`)
+ - `dataset-folder` : The folder where the datasets for querying the API are (by default, it is in `src/benchmark_llm_serving/datasets`)
  - `output-folder` : The folder where the results will be written (by default in the `results` folder)
  - `gpu-name`: The name of the GPU on which the model is (default `None`)
  - `step-live-metrics` : The time, in second, between two querying of the `/metrics/` endpoint of happy_vllm (default `0.01`)

@@ -34,8 +34,7 @@ def get_data_path() -> Path:
         str: Path of the data folder
     '''
     current_directory = Path(os.path.dirname(os.path.realpath(__file__)))
-    grand_parent_directory = current_directory.parent.parent.absolute()
-    data_path = grand_parent_directory / "datasets"
+    data_path = current_directory / "datasets"
     if not os.path.isdir(data_path):
         os.mkdir(data_path)
     return data_path
