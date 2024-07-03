@@ -20,7 +20,7 @@ ENV VIRTUAL_ENV="/opt/venv" PATH="/opt/venv/bin:${PATH}"
 WORKDIR /app
 
 # Install package
-COPY pyproject.toml setup.py README.md requirements.txt version.txt /app
+COPY pyproject.toml setup.py README.md requirements.txt version.txt MANIFEST.in /app/
 COPY src/benchmark_llm_serving /app/src/benchmark_llm_serving
 
 RUN python -m pip install -r requirements.txt && python -m pip install .
@@ -42,7 +42,8 @@ COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
 
-COPY src/benchmark_llm_serving/bench_suite.py /app
+COPY src/benchmark_llm_serving/bench_suite.py /app/
+COPY src/benchmark_llm_serving/datasets/ /app/src/benchmark_llm_serving/datasets/
 ENV DATASET_FOLDER="/app/src/benchmark_llm_serving/datasets"
 
 CMD ["python", "/app/bench_suite.py"]
