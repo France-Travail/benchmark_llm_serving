@@ -29,9 +29,11 @@ def load_prefix(dataset_folder: Union[Path, str, None] = None) -> List[str]:
     
 
 def select_prefix(prefix: List[str], mode: Union[str, None]) -> List[str]:
-    if mode == 'min':
+    if mode is None:
+        return prefix
+    if mode.lower() == 'min':
         return [prefix[np.argmin([len(pref) for pref in prefix])]]
-    elif mode == 'max':
+    elif mode.lower() == 'max':
         return [prefix[np.argmax([len(pref) for pref in prefix])]]
     else
         return prefix
@@ -104,6 +106,9 @@ class BenchmarkSettings(BaseSettings):
     max_duration_speed_generation: int = 900
     min_duration_speed_generation: int = 60
     target_queries_nb_speed_generation: int = 100
+
+    prefix_caching: bool = False
+    prefix_mode: str = 'max'
 
     min_number_of_valid_queries: int = 50
 
@@ -184,7 +189,7 @@ def main():
         now = utils.get_now()
         logger.info(f"{now} Benchmark for the prompt ingestion speed : instance {i} ")
         args.output_file = os.path.join(raw_results_folder, f"prompt_ingestion_{i}.json")
-        dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
+        dataset = add_prefixes_to_dataset(args, datasets, 4)
         launch_benchmark(args, dataset, suite_id)
         now = utils.get_now()
         logger.info(f"{now} Benchmark for the prompt ingestion speed : instance {i} : DONE")
@@ -205,7 +210,7 @@ def main():
         args.output_length = output_length
         args.output_file = os.path.join(raw_results_folder, f"kv_cache_profile_input_{input_length}_output_{output_length}.json")
         now = utils.get_now()
-        dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
+        dataset = add_prefixes_to_dataset(args, datasets, 4)
         logger.info(f"{now} Beginning the benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length}")
         launch_benchmark(args, dataset, suite_id)
         now = utils.get_now()
@@ -235,7 +240,7 @@ def main():
                 args.output_file = os.path.join(raw_results_folder, f"generation_speed_input_{input_length}_output_{output_length}_nb_requests_{nb_constant_requests}.json")
                 now = utils.get_now()
                 logger.info(f"{now} Benchmarks for the generation speed, input length : {input_length}, output_length : {output_length}, nb_requests : {nb_constant_requests}")
-                dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
+                dataset = add_prefixes_to_dataset(args, datasets, 4)
                 launch_benchmark(args, dataset, suite_id)
                 now = utils.get_now()
                 logger.info(f"{now} Benchmarks for the generation speed, input length : {input_length}, output_length : {output_length}, nb_requests : {nb_constant_requests} : DONE")
