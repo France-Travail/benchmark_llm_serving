@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import string
 import shutil
@@ -35,7 +36,7 @@ def select_prefix(prefix: List[str], mode: Union[str, None]) -> List[str]:
         return [prefix[np.argmin([len(pref) for pref in prefix])]]
     elif mode.lower() == 'max':
         return [prefix[np.argmax([len(pref) for pref in prefix])]]
-    else
+    else :
         return prefix
 
 def get_random_prefix(prefix: List[str]) -> str:
@@ -190,6 +191,8 @@ def main():
         logger.info(f"{now} Benchmark for the prompt ingestion speed : instance {i} ")
         args.output_file = os.path.join(raw_results_folder, f"prompt_ingestion_{i}.json")
         dataset = add_prefixes_to_dataset(args, datasets, 4)
+        print(dataset[0])
+        exit()
         launch_benchmark(args, dataset, suite_id)
         now = utils.get_now()
         logger.info(f"{now} Benchmark for the prompt ingestion speed : instance {i} : DONE")
