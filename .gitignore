@@ -12,3 +12,5 @@ results
 *.pyc
 *.egg-info
 bandit_outputs.txt
+node_modules
+package*.json
