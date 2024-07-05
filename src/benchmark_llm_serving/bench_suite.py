@@ -20,9 +20,6 @@ from benchmark_llm_serving.utils_args import get_parser_base_arguments, add_argu
 logger = logging.getLogger("Benchmark suite")
 logging.basicConfig(level=logging.INFO)
 
-def get_random_prefix(seed: bool = False) -> str:
-    
-
 
 def get_random_string(length: int = 4, seed: bool = False) -> str:
     """Generates a random string of letters 
@@ -140,7 +137,6 @@ def main():
     for input_length in ["0"] + input_lengths:
         dataset = utils.load_dataset(args.dataset_folder, input_length)
         datasets[input_length] = dataset.copy()
-
     # Define the input/output length couple
     input_output_lengths = []
     for input_length in input_lengths:
