@@ -20,8 +20,11 @@ from benchmark_llm_serving.utils_args import get_parser_base_arguments, add_argu
 logger = logging.getLogger("Benchmark suite")
 logging.basicConfig(level=logging.INFO)
 
+def get_random_prefix(seed: bool = False) -> str:
+    
 
-def get_random_string(length: int = 4) -> str:
+
+def get_random_string(length: int = 4, seed: bool = False) -> str:
     """Generates a random string of letters 
 
     Args:
@@ -32,12 +35,14 @@ def get_random_string(length: int = 4) -> str:
 
     """
     prefix = ""
+    if seed:
+        random.seed(42)
     for i in range(length):
         prefix += random.choice(string.ascii_letters)
     return prefix
 
 
-def add_prefixes_to_dataset(dataset: List[str], length_prefix: int) -> List[str]:
+def add_prefixes_to_dataset(dataset: List[str], length_prefix: int, seed: bool = False) -> List[str]:
     """Add a random prefix for each prompt of the dataset
 
     Args:
@@ -47,7 +52,7 @@ def add_prefixes_to_dataset(dataset: List[str], length_prefix: int) -> List[str]
     Returns:
         list : The list of new prompts
     """
-    return [get_random_string(length_prefix) + prompt for prompt in dataset]
+    return [get_random_string(length_prefix, seed) + prompt for prompt in dataset]
 
 
 class BenchmarkSettings(BaseSettings):
