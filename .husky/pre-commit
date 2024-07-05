@@ -1,0 +1,13 @@
+#!/bin/bash
+EMAIL=$(git config user.email)
+if [[ $EMAIL == *"@users.noreply.github.com"* ]]
+then
+	echo "Email OK";
+else
+	echo $EMAIL
+	echo "email github not configured ";
+	echo "run:"
+	echo '   git config --global user.email "identifiant+username@users.noreply.github.com"'
+	echo ''
+	exit 1;
+fi;
