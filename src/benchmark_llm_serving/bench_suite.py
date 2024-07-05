@@ -4,6 +4,7 @@ import string
 import shutil
 import logging
 import argparse
+import numpy as np
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Union, List
@@ -20,8 +21,26 @@ from benchmark_llm_serving.utils_args import get_parser_base_arguments, add_argu
 logger = logging.getLogger("Benchmark suite")
 logging.basicConfig(level=logging.INFO)
 
+def load_prefix(dataset_folder: Union[Path, str, None] = None) -> List[str]:
+    prefix_path = os.path.join(dataset_folder, 'prefix.json')
+    with open(prefix_path, 'r') as json_file:
+        prefix = json.load(json_file)
+    return prefix
+    
 
-def get_random_string(length: int = 4, seed: bool = False) -> str:
+def select_prefix(prefix: List[str], mode: Union[str, None]) -> List[str]:
+    if mode == 'min':
+        return [prefix[np.argmin([len(pref) for pref in prefix])]]
+    elif mode == 'max':
+        return [prefix[np.argmax([len(pref) for pref in prefix])]]
+    else
+        return prefix
+
+def get_random_prefix(prefix: List[str]) -> str:
+    return random.choice(prefix)
+
+
+def get_random_string(length: int = 4) -> str:
     """Generates a random string of letters 
 
     Args:
@@ -32,14 +51,12 @@ def get_random_string(length: int = 4, seed: bool = False) -> str:
 
     """
     prefix = ""
-    if seed:
-        random.seed(42)
     for i in range(length):
         prefix += random.choice(string.ascii_letters)
     return prefix
 
 
-def add_prefixes_to_dataset(dataset: List[str], length_prefix: int, seed: bool = False) -> List[str]:
+def add_prefixes_to_dataset(args: argparse.Namespace, datasets: Union[dict, None], length_prefix: Union[int, None]) -> List[str]:
     """Add a random prefix for each prompt of the dataset
 
     Args:
@@ -49,7 +66,12 @@ def add_prefixes_to_dataset(dataset: List[str], length_prefix: int, seed: bool =
     Returns:
         list : The list of new prompts
     """
-    return [get_random_string(length_prefix, seed) + prompt for prompt in dataset]
+    if args.prefix_caching:
+        prefix = load_prefix(args.dataset_folder)
+        prefix = select_prefix(prefix, args.prefix_mode)
+        return [get_random_prefix(prefix) + prompt for prompt in datasets[args.prompt_length]]
+    else:
+        return [get_random_string(length_prefix) + prompt for prompt in datasets[args.prompt_length]]
 
 
 class BenchmarkSettings(BaseSettings):
@@ -105,6 +127,8 @@ def main():
     parser.add_argument("--target-queries-nb-speed_generation", type=int, help="The target_queries for the speed generation")
     parser.add_argument("--speed-threshold", type=float, help="Accepted threshold for generation speed")
     parser.add_argument("--min-number-of-valid-queries", type=int, help="The minimal number of queries needed to consider a file for drawing the graphs")
+    parser.add_argument("--prefix-caching", type=bool, help="Compute metric with prefix caching")
+    parser.add_argument("--prefix-mode", type=str, help="Mode to select which prefixes to use")
     parser.set_defaults(**bench_settings.model_dump())
 
     parser = add_arguments_to_parser(parser)
