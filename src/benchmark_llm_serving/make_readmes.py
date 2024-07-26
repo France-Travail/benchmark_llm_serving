@@ -53,7 +53,6 @@ def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str)
     prompt_ingestion_file = os.path.join(report_folder, "data", "prompt_ingestion_graph_data.json")
     with open(prompt_ingestion_file, 'r') as json_file:
         prompt_ingestion = json.load(json_file)
-    total_generation_file = os.path.join(report_folder, "data", "total_speed_generation_graph_data.json")
     
 
     # Summary table
