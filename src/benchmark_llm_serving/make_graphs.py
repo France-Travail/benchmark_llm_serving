@@ -159,14 +159,15 @@ def make_speed_generation_graph_for_one_input_output(input_length: int, output_l
     # Figure definition
     fig, ax1 = plt.subplots()
     fig.subplots_adjust(right=0.75)
-    ax2 = ax1.twinx()
-    ax3 = ax1.twinx()
+    # Specify the type of ax2 and ax3 to avoid mypy errors
+    ax2: Any = ax1.twinx()
+    ax3: Any = ax1.twinx()
     ax3.spines.right.set_position(("axes", 1.1))
     fig.set_size_inches(18.5, 10.5)
     ax1.set_xlabel('Number of parallel requests', fontsize='14')
     ax1.set_ylabel('Speed generation (tokens per second)', fontsize='14')
     ax2.set_ylabel('Max KV cache percentage', fontsize='14')
-    ax2.set_ylim([0, 1.0])
+    ax2.set_ylim((0, 1.0))
     ax3.set_ylabel('Time to first token (ms)', fontsize='14')
 
     # Speed generation plot
@@ -269,12 +270,12 @@ def make_kv_cache_profile_graph_for_one_input_output(input_length: int, output_l
 
     # Figure definition
     fig, ax1 = plt.subplots()
-    ax2 = ax1.twinx()
+    ax2: Any = ax1.twinx()
     fig.set_size_inches(18.5, 10.5)
     ax1.set_xlabel('Time (in second)', fontsize='14')
     ax1.set_ylabel('Percentage KV cache', fontsize='14')
     ax2.set_ylabel('Requests number', fontsize='14')
-    ax1.set_ylim([0, 1.0])
+    ax1.set_ylim((0, 1.0))
     ax2.set_ylim(bottom=0, top=max(running+waiting)+1)
 
     # Plots the kv cache usage and running and waiting requests
