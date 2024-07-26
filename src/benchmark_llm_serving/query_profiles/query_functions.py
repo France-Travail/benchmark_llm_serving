@@ -30,7 +30,8 @@ async def query_function(query_input: QueryInput, session: aiohttp.ClientSession
         "min_tokens": args.output_length,
         "temperature": 0,
         "repetition_penalty": 1.2,
-        "stream": True
+        "stream": True,
+        "stream_options": {"include_usage": True}
                 }
     output = QueryOutput()
     output.starting_timestamp = datetime.now().timestamp()
@@ -54,8 +55,9 @@ async def query_function(query_input: QueryInput, session: aiohttp.ClientSession
                         timestamp = datetime.now().timestamp()
                         output.timestamp_of_tokens_arrival.append(timestamp)
                         json_chunk = json.loads(chunk)
-                        data = json_chunk['choices'][0]['text']
-                        output.generated_text += data
+                        if len(json_chunk['choices']):
+                            data = json_chunk['choices'][0]['text']
+                            output.generated_text += data
                         if "usage" in json_chunk:
                             if json_chunk['usage'] is not None:
                                 output.prompt_length = json_chunk['usage']['prompt_tokens']
