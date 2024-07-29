@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import List, Tuple, Union, Any
 
 from benchmark_llm_serving import utils
+from benchmark_llm_serving import backends
 from benchmark_llm_serving.utils_args import parse_args
 from benchmark_llm_serving.io_classes import QueryOutput, QueryInput
 from benchmark_llm_serving.query_profiles.query_functions import query_function
@@ -39,14 +40,13 @@ async def get_benchmark_results(queries_dataset: List[QueryInput], args: argpars
     metrics_url = args.base_url + args.metrics_endpoint
 
     # Make one query in order to be sure that everything is ok
-    payload = {"model": args.model,
-        "max_tokens": 2,
-        "min_tokens": 2,
-        "prompt": "Hey"}
-    response = requests.post(completions_url, json=payload, timeout=100)
+    query_input = QueryInput(prompt="Hey", internal_id=-1)
+    payload = backends.get_payload(query_input, args)
+    headers = backends.get_completions_headers(args)
+    response = requests.post(completions_url, json=payload, timeout=100, headers=headers)
     status_code = response.status_code
-    if status_code != 200:
-        raise ValueError(f"The status code of the response is {status_code} instead of 200")
+    # if status_code != 200:
+    #     raise ValueError(f"The status code of the response is {status_code} instead of 200")
     
     if args.query_profile == "constant_number_of_queries":
         results, all_live_metrics = await get_benchmark_results_constant_number(queries_dataset, args, completions_url, metrics_url, logger)
@@ -106,25 +106,33 @@ def add_application_parameters(parameters: dict, args: argparse.Namespace) -> di
     parameters["vllm_version"] = info["vllm_version"]
     launch_arguments = requests.get(args.base_url + args.launch_arguments_endpoint, timeout=3600).json()
     launch_arguments.pop("model")
+    if parameters["model_name"] is not None:
+        launch_arguments.pop("model_name")
     parameters.update(launch_arguments)
     return parameters
 
 
-def get_general_metrics(benchmark_results: List[QueryOutput], all_live_metrics: List[dict]) -> dict:
+def get_general_metrics(benchmark_results: List[QueryOutput], all_live_metrics: List[dict], args: argparse.Namespace) -> dict:
     """Calculates the general metrics from each output
 
     Args:
         benchmark_results (list) : The outputs of the benchmark
         all_live_metrics (list) : The list of live metrics
+        args (argparse.Namespace) : The cli args
 
     Returns:
         dict : The general metrics
     """
     general_metrics = {}
     
-    general_metrics['max_kv_cache'] = max([metric['gpu_cache_usage_perc'] for metric in all_live_metrics])
-    general_metrics['max_requests_running'] = max([metric['num_requests_running'] for metric in all_live_metrics])
-    general_metrics['max_requests_waiting'] = max([metric['num_requests_waiting'] for metric in all_live_metrics])
+    if args.backend == "happy_vllm":
+        general_metrics['max_kv_cache'] = max([metric['gpu_cache_usage_perc'] for metric in all_live_metrics])
+        general_metrics['max_requests_running'] = max([metric['num_requests_running'] for metric in all_live_metrics])
+        general_metrics['max_requests_waiting'] = max([metric['num_requests_waiting'] for metric in all_live_metrics])
+    else:
+        general_metrics['max_kv_cache'] = -1
+        general_metrics['max_requests_running'] = -1
+        general_metrics['max_requests_waiting'] = -1
     
     general_metrics['total_number_of_queries'] = len(benchmark_results)
     general_metrics['nb_timeout_queries'] = len([result for result in benchmark_results if result.timeout])
@@ -214,11 +222,14 @@ def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str]
         "request_rate": args.request_rate,
         "backend": args.backend,
         "output_length": args.output_length,
-        "suite_id" : suite_id
+        "suite_id" : suite_id,
+        "model_name": args.model_name
         }
 
     if args.backend == "happy_vllm":
         parameters = add_application_parameters(parameters, args)
+    if parameters["model_name"] is None:
+        parameters["model_name"] = parameters["model"]
         
     if args.min_duration is None:
         args.min_duration = args.max_duration
@@ -254,7 +265,7 @@ def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str]
                     result.ending_timestamp = result.starting_timestamp
         result.calculate_derived_stats()
 
-    general_metrics = get_general_metrics(benchmark_results, all_live_metrics)
+    general_metrics = get_general_metrics(benchmark_results, all_live_metrics, args)
     general_metrics['actual_total_time'] = end_timestamp - start_timestamp
     aggregated_metrics = get_aggregated_metrics(benchmark_results)
 
@@ -274,12 +285,12 @@ def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str]
     errored_results = [result.to_dict() for result in errored_results]
     final_json['errored_queries'] = errored_results
     if args.query_metrics:
-        benchmark_results = [result.to_dict() for result in benchmark_results]
+        benchmark_results = [result.to_dict() for result in benchmark_results if result.success or result.timeout]
         for result in benchmark_results:
             result["prompt"] = ""
         final_json['individual_query'] = benchmark_results # type: ignore
     
-    if args.with_kv_cache_profile:
+    if args.with_kv_cache_profile and args.backend == "happy_vllm":
         final_json["kv_cache_profile"] = all_live_metrics # type: ignore
     with open(args.output_file, 'w') as json_file:
         json.dump(final_json, json_file, indent=4)

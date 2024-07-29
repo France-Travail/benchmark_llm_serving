@@ -136,7 +136,7 @@ async def get_benchmark_results_scheduled_requests(queries_dataset: List[QueryIn
     async with aiohttp.ClientSession(connector=connector) as session:
         # Query the /metrics endpoint for one second before launching the first queries
         for i in range(int(1/args.step_live_metrics)):
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
             await asyncio.sleep(args.step_live_metrics)
         start_queries_timestamp = datetime.now().timestamp()
         # Add the initial timestamp to the queries
@@ -162,17 +162,17 @@ async def get_benchmark_results_scheduled_requests(queries_dataset: List[QueryIn
                 logger.info(f"{now} {current_query_index_to_launch} requests in total have been launched")
             tasks += [asyncio.create_task(query_function(query_input, session, completions_url, results, args)) for query_input in queries_to_launch]
 
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
             await asyncio.sleep(args.step_live_metrics)
 
         # Once all queries have been sent, we still query the /metrics endpoint
         # Until all the queries are done
         while not tasks_are_done(tasks):
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
             await asyncio.sleep(args.step_live_metrics)
 
         # Query the /metrics endpoint for one second after launching the queries are done
         for i in range(int(1/args.step_live_metrics)):
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
             await asyncio.sleep(args.step_live_metrics)
     return results, all_live_metrics

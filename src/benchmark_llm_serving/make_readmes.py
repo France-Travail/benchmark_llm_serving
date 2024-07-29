@@ -18,6 +18,8 @@ def get_max_tokens_in_kv_cache(output_folder: str) -> int:
     raw_result_folder = os.path.join(output_folder, "raw_results")
     all_raw_filenames = list(os.walk(raw_result_folder))[0][2]
     kv_cache_filenames = [filename for filename in all_raw_filenames if "kv_cache_profile" in filename]
+    if len(kv_cache_filenames) == 0:
+        return -1
     max_tokens_in_kv_cache_list = []
     for filename in kv_cache_filenames:
         path = os.path.join(raw_result_folder, filename)
@@ -78,9 +80,12 @@ def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str)
 
     # Max tokens in KV cache
     max_tokens_in_kv_cache = get_max_tokens_in_kv_cache(output_folder)
-    # Precision 25k tokens
-    approximate_max_tokens_in_kv_cache = int(25 * (max_tokens_in_kv_cache // 25000))
-    summary_data.extend(["Estimate of the max nb of tokens in KV cache", f"~{approximate_max_tokens_in_kv_cache}k tokens "])
+    if max_tokens_in_kv_cache == -1:
+        summary_data.extend(["Estimate of the max nb of tokens in KV cache", "NA"])
+    else:
+        # Precision 25k tokens
+        approximate_max_tokens_in_kv_cache = int(25 * (max_tokens_in_kv_cache // 25000))
+        summary_data.extend(["Estimate of the max nb of tokens in KV cache", f"~{approximate_max_tokens_in_kv_cache}k tokens"])
     
 
     mdfile.new_line()

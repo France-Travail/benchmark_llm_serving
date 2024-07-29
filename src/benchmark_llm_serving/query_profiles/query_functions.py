@@ -6,6 +6,7 @@ import traceback
 from typing import List
 from datetime import datetime
 
+from benchmark_llm_serving import backends
 from benchmark_llm_serving.io_classes import QueryOutput, QueryInput
 
 
@@ -23,46 +24,37 @@ async def query_function(query_input: QueryInput, session: aiohttp.ClientSession
     Returns:
         QueryOutput : The output of the query
     """
-    body = {
-        "prompt": query_input.prompt,
-        "model": args.model,
-        "max_tokens": args.output_length,
-        "min_tokens": args.output_length,
-        "temperature": 0,
-        "repetition_penalty": 1.2,
-        "stream": True,
-        "stream_options": {"include_usage": True}
-                }
+    body = backends.get_payload(query_input, args)
+    headers = backends.get_completions_headers(args)
     output = QueryOutput()
     output.starting_timestamp = datetime.now().timestamp()
     output.prompt = query_input.prompt
     most_recent_timestamp = output.starting_timestamp
     try:
-        async with session.post(url=completions_url, json=body) as response:
+        async with session.post(url=completions_url, json=body, headers=headers) as response:
             if response.status == 200:
                 async for chunk_bytes in response.content:
                     chunk_bytes = chunk_bytes.strip()
                     if not chunk_bytes:
                         continue
-                    # The OpenAI API prefixes its response by "data: " so we remove it
-                    chunk = chunk_bytes.decode("utf-8").removeprefix("data: ")
-                    # If the stream is ending, we save the timestamp as ending time
-                    if chunk == "[DONE]":
-                        output.ending_timestamp = datetime.now().timestamp()
-                        output.success = True
-                    # Otherwise, we add the response to the already generated text
-                    else:
-                        timestamp = datetime.now().timestamp()
-                        output.timestamp_of_tokens_arrival.append(timestamp)
-                        json_chunk = json.loads(chunk)
-                        if len(json_chunk['choices']):
-                            data = json_chunk['choices'][0]['text']
-                            output.generated_text += data
-                        if "usage" in json_chunk:
-                            if json_chunk['usage'] is not None:
-                                output.prompt_length = json_chunk['usage']['prompt_tokens']
-                        
-                        
+                    
+                    # Some backends add a prefix to the response. We remove it
+                    chunk = backends.decode_remove_response_prefix(chunk_bytes, args)
+                    # Some backends send useless messages. We don't consider them
+                    if backends.test_chunk_validity(chunk, args):
+                        # If the stream is ending, we save the timestamp as ending time
+                        if backends.check_end_of_stream(chunk, args):
+                            output.ending_timestamp = datetime.now().timestamp()
+                            output.success = True
+                        # Otherwise, we add the response to the already generated text
+                        else:
+                            timestamp = datetime.now().timestamp()
+                            json_chunk = json.loads(chunk)
+                            newly_generated_text = backends.get_newly_generated_text(json_chunk, args)
+                            if len(newly_generated_text):
+                                output.timestamp_of_tokens_arrival.append(timestamp)
+                                output.generated_text += newly_generated_text
+                            backends.add_prompt_length(json_chunk, output, args)
             else:
                 output.success = False
                 output.error = response.reason or ""

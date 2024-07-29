@@ -1,4 +1,5 @@
 import aiohttp
+import argparse
 from typing import List
 from datetime import datetime
 from prometheus_client.parser import text_string_to_metric_families
@@ -43,20 +44,23 @@ def get_live_vllm_metrics(response_text: str) -> dict:
     return vllm_metrics
 
 
-async def get_live_metrics(session: aiohttp.ClientSession, metrics_url: str, all_live_metrics: List[dict]) -> None:
+async def get_live_metrics(session: aiohttp.ClientSession, metrics_url: str, all_live_metrics: List[dict],
+                            args: argparse.Namespace) -> None:
     """Queries the /metrics endpoint, gets the live metrics and add them to the list all_live_metrics
 
     Args:
         session (aiohttp.ClientSession) : The aiohttp session
         metrics_url (str) : The url to the /metrics endpoint
         all_live_metrics (list) : The list to which we add the live metrics results
+        args (argparse.Namespace) : The CLI args
     """
     tmp_list = []
-    async with session.get(url=metrics_url) as response:
-        if response.status == 200:
-            async for chunk_bytes in response.content:
-                tmp_list.append(chunk_bytes.decode('utf-8'))
-    live_metrics = get_live_vllm_metrics("".join(tmp_list))
-    timestamp = datetime.now().timestamp()
-    live_metrics['timestamp'] = timestamp
-    all_live_metrics.append(live_metrics.copy())
+    if args.backend == "happy_vllm":
+        async with session.get(url=metrics_url) as response:
+            if response.status == 200:
+                async for chunk_bytes in response.content:
+                    tmp_list.append(chunk_bytes.decode('utf-8'))
+        live_metrics = get_live_vllm_metrics("".join(tmp_list))
+        timestamp = datetime.now().timestamp()
+        live_metrics['timestamp'] = timestamp
+        all_live_metrics.append(live_metrics.copy())

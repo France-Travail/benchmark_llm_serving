@@ -65,6 +65,7 @@ class BenchmarkSettings(BaseSettings):
     base_url: str = ""
     host: str = "localhost"
     port: int = 8000
+    model_name: Optional[str] = None
 
     gpu_name: Optional[str] = None
 
@@ -90,6 +91,7 @@ class BenchmarkSettings(BaseSettings):
     launch_arguments_endpoint: str = "/v1/launch_arguments"
 
     model_config = SettingsConfigDict(env_file=".env", extra='ignore', protected_namespaces=('settings', ))
+
 
 def main():
     # Define arguments for the bench_suite
@@ -166,27 +168,28 @@ def main():
     now = utils.get_now()
     logger.info(f"{now} Benchmark for the prompt ingestion speed : DONE")
 
-    # Launch the benchmark for the KV cache profile
-    now = utils.get_now()
-    logger.info(f"{now} Beginning the benchmarks for the KV cache profile")
-    args.query_profile = "growing_requests"
-    args.query_metrics = False
-    args.with_kv_cache_profile = True
-    args.max_duration = args.max_duration_kv_cache_profile
-    args.min_duration = None
-    args.target_queries_nb = None
-    for input_length, output_length in input_output_lengths:
-        args.prompt_length = input_length
-        args.output_length = output_length
-        args.output_file = os.path.join(raw_results_folder, f"kv_cache_profile_input_{input_length}_output_{output_length}.json")
+    if args.backend == "happy_vllm":
+        # Launch the benchmark for the KV cache profile
         now = utils.get_now()
-        dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
-        logger.info(f"{now} Beginning the benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length}")
-        launch_benchmark(args, dataset, suite_id)
+        logger.info(f"{now} Beginning the benchmarks for the KV cache profile")
+        args.query_profile = "growing_requests"
+        args.query_metrics = False
+        args.with_kv_cache_profile = True
+        args.max_duration = args.max_duration_kv_cache_profile
+        args.min_duration = None
+        args.target_queries_nb = None
+        for input_length, output_length in input_output_lengths:
+            args.prompt_length = input_length
+            args.output_length = output_length
+            args.output_file = os.path.join(raw_results_folder, f"kv_cache_profile_input_{input_length}_output_{output_length}.json")
+            now = utils.get_now()
+            dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
+            logger.info(f"{now} Beginning the benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length}")
+            launch_benchmark(args, dataset, suite_id)
+            now = utils.get_now()
+            logger.info(f"{now} Benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length} : DONE")
         now = utils.get_now()
-        logger.info(f"{now} Benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length} : DONE")
-    now = utils.get_now()
-    logger.info(f"{now} Benchmarks for the KV cache profile : DONE")
+        logger.info(f"{now} Benchmarks for the KV cache profile : DONE")
 
     # Launch the benchmark for generation_speed
     now = utils.get_now()
@@ -225,7 +228,7 @@ def main():
     now = utils.get_now()
     logger.info(f"{now} Drawing graphs")
     draw_and_save_graphs(output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name,
-                        min_number_of_valid_queries=args.min_number_of_valid_queries)
+                        min_number_of_valid_queries=args.min_number_of_valid_queries, backend=args.backend)
     now = utils.get_now()
     logger.info(f"{now} Drawing graphs : DONE")
 

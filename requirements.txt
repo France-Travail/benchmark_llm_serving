@@ -1,7 +1,7 @@
 aiohttp==3.9.5
 prometheus_client==0.20.0
-matplotlib==3.8.4
-pydantic==2.7.1
-pydantic-settings==2.2.1
-requests==2.32.0
+matplotlib==3.9.1
+pydantic==2.8.2
+pydantic-settings==2.3.4
+requests==2.32.3
 mdutils==1.6.0
