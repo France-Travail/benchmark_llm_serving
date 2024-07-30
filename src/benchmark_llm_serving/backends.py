@@ -133,6 +133,7 @@ def get_newly_generated_text(json_chunk: dict, args: argparse.Namespace) -> str:
             return data
     else:
         raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
+    return ""
 
 
 def add_prompt_length(json_chunk: dict, output: QueryOutput, args: argparse.Namespace) -> None:
