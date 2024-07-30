@@ -23,9 +23,9 @@ class BackEnd():
         Returns:
             dict : The payload
         """
-        raise NotImplemented("The subclass should implement this method")
+        raise NotImplemented("The subclass should implement this method") # type: ignore
 
-    def get_newly_generated_text(self, json_chunk: str) -> str:
+    def get_newly_generated_text(self, json_chunk: dict) -> str:
         """Gets the newly generated text
 
         Args:
@@ -34,7 +34,7 @@ class BackEnd():
         Returns:
             str : The newly generated text
         """
-        raise NotImplemented("The subclass should implement this method")
+        raise NotImplemented("The subclass should implement this method") # type: ignore
     
     def test_chunk_validity(self, chunk: str) -> bool:
         """Tests if the chunk is valid or should not be considered.
@@ -113,7 +113,7 @@ class BackendHappyVllm(BackEnd):
                         "stream_options": {"include_usage": True}
                                 }
 
-    def get_newly_generated_text(self, json_chunk: str) -> str:
+    def get_newly_generated_text(self, json_chunk: dict) -> str:
         """Gets the newly generated text
 
         Args:
@@ -173,7 +173,7 @@ class BackEndMistral(BackEnd):
         return {"Accept": "application/json",
                 "Content-Type": "application/json"}
 
-    def get_newly_generated_text(self, json_chunk: str) -> str:
+    def get_newly_generated_text(self, json_chunk: dict) -> str:
         """Gets the newly generated text
 
         Args:
@@ -192,8 +192,9 @@ class BackEndMistral(BackEnd):
 def get_backend(backend_name: str) -> BackEnd:
     implemented_backends = ["mistral", "happy_vllm"]
     if backend_name not in implemented_backends:
-            raise ValueError(f"The specified backend {backend_name} is not implemented. Please use one of the following : {implemented_backends}")
+        raise ValueError(f"The specified backend {backend_name} is not implemented. Please use one of the following : {implemented_backends}")
     if backend_name == "happy_vllm":
         return BackendHappyVllm(backend_name, chunk_prefix="data: ", last_chunk="[DONE]")
     if backend_name == "mistral":
         return BackEndMistral(backend_name, chunk_prefix="data: ", last_chunk="[DONE]")
+    return BackEnd("not_implemented")
