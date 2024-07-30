@@ -10,8 +10,8 @@ from datetime import datetime
 from typing import List, Tuple, Union, Any
 
 from benchmark_llm_serving import utils
-from benchmark_llm_serving import backends
 from benchmark_llm_serving.utils_args import parse_args
+from benchmark_llm_serving.backends import get_backend, BackEnd
 from benchmark_llm_serving.io_classes import QueryOutput, QueryInput
 from benchmark_llm_serving.query_profiles.query_functions import query_function
 from benchmark_llm_serving.query_profiles.constant_number import get_benchmark_results_constant_number
@@ -24,13 +24,14 @@ logging.basicConfig(level=logging.INFO)
 
 
 async def get_benchmark_results(queries_dataset: List[QueryInput], args: argparse.Namespace,
-                                logger: logging.Logger) -> Tuple[List[QueryOutput], List[dict]]:
+                                logger: logging.Logger, backend: BackEnd) -> Tuple[List[QueryOutput], List[dict]]:
     """Gets the results of the benchmark
 
     Args:
         queries_dataset (list) : The queries we want to use
         args (argparse.Namespace) : The CLI args
         logger (logging.Logger) : The logger
+        backend (Backend) : The backend to consider
     
     Returns:
         list[QueryOutput] : The list of the result for each query
@@ -41,20 +42,20 @@ async def get_benchmark_results(queries_dataset: List[QueryInput], args: argpars
 
     # Make one query in order to be sure that everything is ok
     query_input = QueryInput(prompt="Hey", internal_id=-1)
-    payload = backends.get_payload(query_input, args)
-    headers = backends.get_completions_headers(args)
+    payload = backend.get_payload(query_input, args)
+    headers = backend.get_completions_headers()
     response = requests.post(completions_url, json=payload, timeout=100, headers=headers)
     status_code = response.status_code
     # if status_code != 200:
     #     raise ValueError(f"The status code of the response is {status_code} instead of 200")
     
     if args.query_profile == "constant_number_of_queries":
-        results, all_live_metrics = await get_benchmark_results_constant_number(queries_dataset, args, completions_url, metrics_url, logger)
+        results, all_live_metrics = await get_benchmark_results_constant_number(queries_dataset, args, completions_url, metrics_url, logger, backend)
     elif args.query_profile == "growing_requests":
-        results, all_live_metrics = await get_benchmark_results_growing_requests(queries_dataset, args, completions_url, metrics_url, logger)
+        results, all_live_metrics = await get_benchmark_results_growing_requests(queries_dataset, args, completions_url, metrics_url, logger, backend)
     else:
         results, all_live_metrics = await get_benchmark_results_scheduled_requests(queries_dataset, args, 
-                                                                                   completions_url, metrics_url, logger)
+                                                                                   completions_url, metrics_url, logger, backend)
     return results, all_live_metrics
 
 
@@ -184,13 +185,14 @@ def get_aggregated_metrics(benchmark_results: List[QueryOutput]) -> dict:
     return aggregated_metrics
 
 
-def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str], None] = None, suite_id: Union[str, None] = None):
+def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str], None] = None, suite_id: Union[str, None] = None, backend: Union[BackEnd, None] = None):
     """Calculates the results of a benchmark. We can explicitly give another dataset.
 
     Args:
         args (argparse.Namespace) : The cli args
         provided_dataset (list) : If provided, replace the loading
         suite_id (str) : The id to identify several benchmarks launched by the same bench suite
+        backend (BackEnd) : The backend to consider. If None, will infer it from args
 
     """
     now = utils.get_now()
@@ -204,9 +206,12 @@ def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str]
     if args.base_url is None:
         args.base_url = f"http://{args.host}:{args.port}"
 
+    if backend is None:
+        backend = get_backend(args.backend)
+
     if args.model is None:
-        if args.backend != "happy_vllm":
-            raise ValueError(f"No model is specified and the backend is not happy_vllm (it is '{args.backend}'). Please provide a model name")
+        if backend.backend_name != "happy_vllm":
+            raise ValueError(f"No model is specified and the backend is not happy_vllm (it is '{backend.backend_name}'). Please provide a model name")
         args.model = get_model_name_from_info_endpoint(args)
 
     if args.output_length is None:
@@ -226,7 +231,7 @@ def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str]
         "model_name": args.model_name
         }
 
-    if args.backend == "happy_vllm":
+    if backend.backend_name == "happy_vllm":
         parameters = add_application_parameters(parameters, args)
     if parameters["model_name"] is None:
         parameters["model_name"] = parameters["model"]
@@ -248,7 +253,7 @@ def launch_benchmark(args: argparse.Namespace, provided_dataset: Union[List[str]
     now = utils.get_now()
     logger.info(f"{now} Beginning the requests to the completions endpoint")
     start_timestamp = datetime.now().timestamp()
-    benchmark_results, all_live_metrics = asyncio.run(get_benchmark_results(queries_dataset, args, logger))
+    benchmark_results, all_live_metrics = asyncio.run(get_benchmark_results(queries_dataset, args, logger, backend))
     end_timestamp = datetime.now().timestamp()
 
     now = utils.get_now()

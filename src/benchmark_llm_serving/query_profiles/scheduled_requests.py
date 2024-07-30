@@ -6,6 +6,7 @@ import numpy as np
 from datetime import datetime
 from typing import List, Tuple
 
+from benchmark_llm_serving.backends import BackEnd
 from benchmark_llm_serving.utils import tasks_are_done, get_now
 from benchmark_llm_serving.utils_metrics import get_live_metrics
 from benchmark_llm_serving.io_classes import QueryOutput, QueryInput
@@ -110,7 +111,7 @@ def continue_condition(current_query_index_to_launch: int, max_queries_number: i
 
 
 async def get_benchmark_results_scheduled_requests(queries_dataset: List[QueryInput], args: argparse.Namespace, completions_url: str,
-                                                   metrics_url: str, logger: logging.Logger)  -> Tuple[List[QueryOutput], List[dict]]:
+                                                   metrics_url: str, logger: logging.Logger, backend: BackEnd)  -> Tuple[List[QueryOutput], List[dict]]:
     """Gets the results for the benchmark and the live metrics, using scheduled queries ie, queries whose timestamp we can calculate
     before actually launching the queries.
 
@@ -120,6 +121,7 @@ async def get_benchmark_results_scheduled_requests(queries_dataset: List[QueryIn
         completions_url (str) : The url of the completions API
         metrics_url (str) : The url to the /metrics endpoint
         logger (logging.Logger) : The logger
+        backend (Backend) : The backend to consider
 
     Returns:
         list[QueryOutput] : The list of the result for each query
@@ -160,7 +162,7 @@ async def get_benchmark_results_scheduled_requests(queries_dataset: List[QueryIn
             if current_query_index_to_launch // int(args.max_queries / 10) != old_query_index_to_launch // int(args.max_queries / 10):
                 now = get_now()
                 logger.info(f"{now} {current_query_index_to_launch} requests in total have been launched")
-            tasks += [asyncio.create_task(query_function(query_input, session, completions_url, results, args)) for query_input in queries_to_launch]
+            tasks += [asyncio.create_task(query_function(query_input, session, completions_url, results, args, backend)) for query_input in queries_to_launch]
 
             asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
             await asyncio.sleep(args.step_live_metrics)

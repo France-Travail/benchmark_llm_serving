@@ -12,6 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from benchmark_llm_serving import utils
 from benchmark_llm_serving.io_classes import QueryInput
 from benchmark_llm_serving.make_readmes import make_readme
+from benchmark_llm_serving.backends import get_backend, BackEnd
 from benchmark_llm_serving.make_graphs import draw_and_save_graphs
 from benchmark_llm_serving.benchmark import launch_benchmark, augment_dataset
 from benchmark_llm_serving.utils_args import get_parser_base_arguments, add_arguments_to_parser
@@ -143,6 +144,8 @@ def main():
     for input_length in input_lengths:
         for output_length in output_lengths:
             input_output_lengths.append((input_length, output_length))
+
+    backend = get_backend(args.backend)
     
     # Launch the benchmark for prompt ingestion speed
     now = utils.get_now()
@@ -162,13 +165,13 @@ def main():
         logger.info(f"{now} Benchmark for the prompt ingestion speed : instance {i} ")
         args.output_file = os.path.join(raw_results_folder, f"prompt_ingestion_{i}.json")
         dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
-        launch_benchmark(args, dataset, suite_id)
+        launch_benchmark(args, dataset, suite_id, backend=backend)
         now = utils.get_now()
         logger.info(f"{now} Benchmark for the prompt ingestion speed : instance {i} : DONE")
     now = utils.get_now()
     logger.info(f"{now} Benchmark for the prompt ingestion speed : DONE")
 
-    if args.backend == "happy_vllm":
+    if backend.backend_name == "happy_vllm":
         # Launch the benchmark for the KV cache profile
         now = utils.get_now()
         logger.info(f"{now} Beginning the benchmarks for the KV cache profile")
@@ -185,7 +188,7 @@ def main():
             now = utils.get_now()
             dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
             logger.info(f"{now} Beginning the benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length}")
-            launch_benchmark(args, dataset, suite_id)
+            launch_benchmark(args, dataset, suite_id, backend=backend)
             now = utils.get_now()
             logger.info(f"{now} Benchmark for the KV cache profile, input length : {input_length}, output_length : {output_length} : DONE")
         now = utils.get_now()
@@ -214,7 +217,7 @@ def main():
                 now = utils.get_now()
                 logger.info(f"{now} Benchmarks for the generation speed, input length : {input_length}, output_length : {output_length}, nb_requests : {nb_constant_requests}")
                 dataset = add_prefixes_to_dataset(datasets[args.prompt_length], 4)
-                launch_benchmark(args, dataset, suite_id)
+                launch_benchmark(args, dataset, suite_id, backend=backend)
                 now = utils.get_now()
                 logger.info(f"{now} Benchmarks for the generation speed, input length : {input_length}, output_length : {output_length}, nb_requests : {nb_constant_requests} : DONE")
             current_timestamp = datetime.now().timestamp()
@@ -228,7 +231,7 @@ def main():
     now = utils.get_now()
     logger.info(f"{now} Drawing graphs")
     draw_and_save_graphs(output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name,
-                        min_number_of_valid_queries=args.min_number_of_valid_queries, backend=args.backend)
+                        min_number_of_valid_queries=args.min_number_of_valid_queries, backend=backend)
     now = utils.get_now()
     logger.info(f"{now} Drawing graphs : DONE")
 

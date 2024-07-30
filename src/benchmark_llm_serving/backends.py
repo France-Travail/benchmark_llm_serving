@@ -3,149 +3,197 @@ import argparse
 from benchmark_llm_serving.io_classes import QueryOutput, QueryInput
 
 
-IMPLEMENTED_BACKENDS = "'happy_vllm', 'mistral'"
+class BackEnd():
+
+    TEMPERATURE = 0
+    REPETITION_PENALTY = 1.2
+
+    def __init__(self, backend_name: str, chunk_prefix: str = "data: ", last_chunk: str = "[DONE]"):
+        self.backend_name = backend_name
+        self.chunk_prefix = chunk_prefix
+        self.last_chunk = last_chunk
+
+    def get_payload(self, query_input: QueryInput, args: argparse.Namespace) -> dict:
+        """Gets the payload to give to the model
+
+        Args:
+            query_input (QueryInput) : The query input to use
+            args (argparse.Namespace) : The cli args
+
+        Returns:
+            dict : The payload
+        """
+        raise NotImplemented("The subclass should implement this method")
+
+    def get_newly_generated_text(self, json_chunk: str) -> str:
+        """Gets the newly generated text
+
+        Args:
+            json_chunk (dict) : The chunk containing the generated text
+
+        Returns:
+            str : The newly generated text
+        """
+        raise NotImplemented("The subclass should implement this method")
+    
+    def test_chunk_validity(self, chunk: str) -> bool:
+        """Tests if the chunk is valid or should not be considered.
+
+        Args:
+            chunk (str) : The chunk to consider
+
+        Returns:
+            bool : Whether the chunk is valid or not
+        """
+        return True
+
+    def get_completions_headers(self) -> dict:
+        """Gets the headers (depending on the backend) to use for the request
+
+        Returns:
+            dict: The headers
+
+        """
+        return {}
+
+    def remove_response_prefix(self, chunk: str) -> str:
+        """Removes the prefix in the response of a model
+
+        Args:
+            chunk (str) : The chunk received
+
+        Returns:
+            str : The string without the prefix
+        """
+        return chunk.removeprefix(self.chunk_prefix)
+
+    def check_end_of_stream(self, chunk: str) -> bool:
+        """Checks whether this is the last chunk of the stream
+
+        Args:
+            chunk (str) : The chunk to test
+
+        Returns:
+            bool : Whether it is the last chunk of the stream
+        """
+        return chunk == self.last_chunk
+
+    def add_prompt_length(self, json_chunk: dict, output: QueryOutput) -> None:
+        """Add the prompt length to the QueryOutput if the key "usage" is in the chunk
+
+        Args:
+            json_chunk (dict) : The chunk containing the prompt length
+            output (QueryOutput) : The output
+        """
+        if "usage" in json_chunk:
+            if json_chunk['usage'] is not None:
+                output.prompt_length = json_chunk['usage']['prompt_tokens']
 
 
-def get_payload(query_input: QueryInput, args: argparse.Namespace) -> dict:
-    """Gets the payload to give to the model
 
-    Args:
-        query_input (QueryInput) : The query input to use
-        args (argparse.Namespace) : The cli args
+class BackendHappyVllm(BackEnd):
 
-    Returns:
-        dict : The payload
-    """
-    temperature = 0
-    repetition_penalty = 1.2
-    if args.backend == "happy_vllm":
+    def get_payload(self, query_input: QueryInput, args: argparse.Namespace) -> dict:
+        """Gets the payload to give to the model
+
+        Args:
+            query_input (QueryInput) : The query input to use
+            args (argparse.Namespace) : The cli args
+
+        Returns:
+            dict : The payload
+        """
         return {"prompt": query_input.prompt,
                         "model": args.model,
                         "max_tokens": args.output_length,
                         "min_tokens": args.output_length,
-                        "temperature": temperature,
-                        "repetition_penalty": repetition_penalty,
+                        "temperature": self.TEMPERATURE,
+                        "repetition_penalty": self.REPETITION_PENALTY,
                         "stream": True,
                         "stream_options": {"include_usage": True}
                                 }
-    elif args.backend == "mistral":
+
+    def get_newly_generated_text(self, json_chunk: str) -> str:
+        """Gets the newly generated text
+
+        Args:
+            json_chunk (dict) : The chunk containing the generated text
+
+        Returns:
+            str : The newly generated text
+        """
+        if len(json_chunk['choices']):
+            data = json_chunk['choices'][0]['text']
+            return data
+        else:
+            return ""
+
+
+class BackEndMistral(BackEnd):
+
+    def get_payload(self, query_input: QueryInput, args: argparse.Namespace) -> dict:
+        """Gets the payload to give to the model
+
+        Args:
+            query_input (QueryInput) : The query input to use
+            args (argparse.Namespace) : The cli args
+
+        Returns:
+            dict : The payload
+        """
         return {"messages": [{"role": "user", "content": query_input.prompt}],
                         "model": args.model,
                         "max_tokens": args.output_length,
                         "min_tokens": args.output_length,
-                        "temperature": temperature,
+                        "temperature": self.TEMPERATURE,
                         "stream": True
                                 }
-    else:
-        raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
+        
+    def test_chunk_validity(self, chunk: str) -> bool:
+        """Tests if the chunk is valid or should not be considered.
 
+        Args:
+            chunk (str) : The chunk to consider
 
-def test_chunk_validity(chunk: str, args: argparse.Namespace) -> bool:
-    """Tests if the chunk is valid or should not be considered.
-
-    Args:
-        chunk (str) : The chunk to consider
-        args (argparse.Namespace) : The cli args
-
-    Returns:
-        bool : Whether the chunk is valid or not
-    """
-    if args.backend in ["happy_vllm"]:
-        return True
-    elif args.backend in ["mistral"]:
+        Returns:
+            bool : Whether the chunk is valid or not
+        """
         if chunk[:4] == "tok-":
             return False
         else:
             return True
-    else:
-        raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
 
+    def get_completions_headers(self) -> dict:
+        """Gets the headers (depending on the backend) to use for the request
 
-def get_completions_headers(args: argparse.Namespace) -> dict:
-    """Gets the headers (depending on the backend) to use for the request
+        Returns:
+            dict: The headers
 
-    Args:
-        args (argparse.Namespace) : The cli args
-    
-    Returns:
-        dict: The headers
-
-    """
-    if args.backend in ["happy_vllm"]:
-        return {}
-    elif args.backend == "mistral":
+        """
         return {"Accept": "application/json",
                 "Content-Type": "application/json"}
-    else:
-        raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
 
+    def get_newly_generated_text(self, json_chunk: str) -> str:
+        """Gets the newly generated text
 
-def decode_remove_response_prefix(chunk_bytes: bytes, args: argparse.Namespace) -> str:
-    """Removes the prefix in the response of a model and converts the bytes in str
+        Args:
+            json_chunk (dict) : The chunk containing the generated text
 
-    Args:
-        chunk_bytes (bytes) : The chunk received
-        args (argparse.Namespace) : The cli args
-
-    Returns:
-        str : The decoded string without the prefix
-    """
-    chunk = chunk_bytes.decode("utf-8")
-    if args.backend in ["happy_vllm", "mistral"]:
-        return chunk.removeprefix("data: ")
-    else:
-        raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
-
-
-def check_end_of_stream(chunk: str, args: argparse.Namespace) -> bool:
-    """Checks if this is the last chunk of the stream
-
-    Args:
-        chunk (str) : The chunk to test
-        args (argparse.Namespace) : The cli args
-
-    Returns:
-        bool : Whether it is the last chunk of the stream
-    """
-    if args.backend in ["happy_vllm", "mistral"]:
-        return chunk == "[DONE]"
-    else:
-        raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
-
-
-def get_newly_generated_text(json_chunk: dict, args: argparse.Namespace) -> str:
-    """Gets the newly generated text
-
-    Args:
-        json_chunk (dict) : The chunk containing the generated text
-        args (argparse.Namespace) : The cli args
-
-    Returns:
-        str : The newly generated text
-    """
-    if args.backend == "happy_vllm":
-        if len(json_chunk['choices']):
-            data = json_chunk['choices'][0]['text']
-            return data
-    elif args.backend == "mistral":
+        Returns:
+            str : The newly generated text
+        """
         if len(json_chunk['choices']):
             data = json_chunk['choices'][0]['delta']["content"]
             return data
-    else:
-        raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
-    return ""
+        else:
+            return ""
 
 
-def add_prompt_length(json_chunk: dict, output: QueryOutput, args: argparse.Namespace) -> None:
-    """Add the prompt length to the QueryOutput
-
-    Args:
-        json_chunk (dict) : The chunk containing the prompt length
-        args (argparse.Namespace) : The cli args
-    """
-    if args.backend in ["happy_vllm", 'mistral']:
-        if "usage" in json_chunk:
-            if json_chunk['usage'] is not None:
-                output.prompt_length = json_chunk['usage']['prompt_tokens']
-    else:
-        raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
+def get_backend(backend_name: str) -> BackEnd:
+    implemented_backends = ["mistral", "happy_vllm"]
+    if backend_name not in implemented_backends:
+            raise ValueError(f"The specified backend {backend_name} is not implemented. Please use one of the following : {implemented_backends}")
+    if backend_name == "happy_vllm":
+        return BackendHappyVllm(backend_name, chunk_prefix="data: ", last_chunk="[DONE]")
+    if backend_name == "mistral":
+        return BackEndMistral(backend_name, chunk_prefix="data: ", last_chunk="[DONE]")

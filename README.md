@@ -6,8 +6,7 @@
 ![Build & Tests](https://github.com/France-Travail/benchmark_llm_serving/actions/workflows/build_and_tests.yaml/badge.svg)
 ![Wheel setup](https://github.com/France-Travail/benchmark_llm_serving/actions/workflows/wheel.yaml/badge.svg)
 
-benchmark_llm_serving is a script aimed at benchmarking the serving API of LLMs. For now, it is focused on LLMs served via [vllm](https://github.com/vllm-project/vllm) and more specifically via [happy-vllm](https://github.com/France-Travail/happy_vllm) which is an API layer on vLLM adding new endpoints and permitting a configuration via environment variables. 
-
+benchmark_llm_serving is a script aimed at benchmarking the serving API of LLMs. For now, two backends are possible : `mistral` and [vLLM](https://github.com/vllm-project/vllm) (via [happy-vllm](https://github.com/France-Travail/happy_vllm) which is an API layer on vLLM adding new endpoints and permitting a configuration via environment variables).
 ## Installation
 
 It is advised to clone the repository in order to get the datasets used for the benchmarks (you can find them in `src/benchmark_llm_serving/datasets`) and build it from source:
