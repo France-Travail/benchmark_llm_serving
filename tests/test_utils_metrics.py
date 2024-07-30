@@ -1,7 +1,8 @@
 import os
 import json
-import aiohttp
 import pytest
+import aiohttp
+import argparse
 from pathlib import Path
 from aioresponses import aioresponses
 
@@ -39,9 +40,11 @@ def test_get_live_vllm_metrics():
 
 @pytest.mark.asyncio()
 async def test_get_live_metrics():
+    # backend happy_vllm
     metrics_response = get_metrics_response()
     all_live_metrics = []
     nb_query = 10
+    args = argparse.Namespace(backend="happy_vllm")
     with aioresponses() as mocked:
         for i in range(nb_query):
             new_metrics_response = metrics_response.replace('vllm:num_requests_running{model_name="/home/data/models/Meta-Llama-3-8B-Instruct"} 2.0',
@@ -49,7 +52,7 @@ async def test_get_live_metrics():
             mocked.get('my_url', status=200, body=new_metrics_response)
         session = aiohttp.ClientSession()
         for i in range(nb_query):
-            results = await utils_metrics.get_live_metrics(session, 'my_url', all_live_metrics)
+            results = await utils_metrics.get_live_metrics(session, 'my_url', all_live_metrics, args)
     await session.close()
     assert len(all_live_metrics) == nb_query
     for i in range(nb_query):
@@ -59,3 +62,19 @@ async def test_get_live_metrics():
         assert all_live_metrics[i]['gpu_cache_usage_perc'] == pytest.approx(4.2)
         if i != 0:
             assert all_live_metrics[i]['timestamp'] != all_live_metrics[i-1]['timestamp']
+
+    # backend mistral
+    metrics_response = get_metrics_response()
+    all_live_metrics = []
+    nb_query = 10
+    args = argparse.Namespace(backend="mistral")
+    with aioresponses() as mocked:
+        for i in range(nb_query):
+            new_metrics_response = metrics_response.replace('vllm:num_requests_running{model_name="/home/data/models/Meta-Llama-3-8B-Instruct"} 2.0',
+                                                            f'vllm:num_requests_running{{model_name="/home/data/models/Meta-Llama-3-8B-Instruct"}} {i}.0')
+            mocked.get('my_url', status=200, body=new_metrics_response)
+        session = aiohttp.ClientSession()
+        for i in range(nb_query):
+            results = await utils_metrics.get_live_metrics(session, 'my_url', all_live_metrics, args)
+    await session.close()
+    assert len(all_live_metrics) == 0

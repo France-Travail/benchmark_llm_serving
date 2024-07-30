@@ -113,8 +113,15 @@ def check_end_of_stream(chunk: str, args: argparse.Namespace) -> bool:
         raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
 
 
-def get_newly_generated_text(json_chunk, args):
-    """
+def get_newly_generated_text(json_chunk: dict, args: argparse.Namespace) -> str:
+    """Gets the newly generated text
+
+    Args:
+        json_chunk (dict) : The chunk containing the generated text
+        args (argparse.Namespace) : The cli args
+
+    Returns:
+        str : The newly generated text
     """
     if args.backend == "happy_vllm":
         if len(json_chunk['choices']):
@@ -128,7 +135,13 @@ def get_newly_generated_text(json_chunk, args):
         raise ValueError(f"The specified backend {args.backend} is not implemented. Please use one of the following : {IMPLEMENTED_BACKENDS}")
 
 
-def add_prompt_length(json_chunk, output, args):
+def add_prompt_length(json_chunk: dict, output: QueryOutput, args: argparse.Namespace) -> None:
+    """Add the prompt length to the QueryOutput
+
+    Args:
+        json_chunk (dict) : The chunk containing the prompt length
+        args (argparse.Namespace) : The cli args
+    """
     if args.backend in ["happy_vllm", 'mistral']:
         if "usage" in json_chunk:
             if json_chunk['usage'] is not None:

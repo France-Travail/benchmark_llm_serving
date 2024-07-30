@@ -10,9 +10,15 @@ from benchmark_llm_serving.io_classes import QueryInput, QueryOutput
 async def mock_streaming_response_content(args):
     tokens_list = ["Hey", " how", " are", " you", " ?"] * 1000
     tokens_list = tokens_list[:args.output_length]
-    for element in iter(tokens_list):
-        string = f"""data: {{"id":"cmpl-d85f82039b864ceb8d95be931b200745", "object":"chat.completion.chunk", "created":1716468615, "model":"CodeLlama-34B-AWQ", "choices":[{{"index":0,"text":"{element}","stop_reason":null,"logprobs":null,"finish_reason":null}}]}}"""
-        yield bytes(string, "utf-8")
+    if args.backend == "happy_vllm":
+        for element in iter(tokens_list):
+            string = f"""data: {{"id":"cmpl-d85f82039b864ceb8d95be931b200745", "object":"chat.completion.chunk", "created":1716468615, "model":"CodeLlama-34B-AWQ", "choices":[{{"index":0,"text":"{element}","stop_reason":null,"logprobs":null,"finish_reason":null}}]}}"""
+            yield bytes(string, "utf-8")
+    if args.backend == "mistral":
+        for element in iter(tokens_list):
+            string = f"""data: {{"id":"cbaa5c28166d4b98b5256f1becc0364d","object":"chat.completion.chunk","created":1722322855,"model":"mistral","choices":[{{"index":0,"delta":{{"content":"{element}"}},"finish_reason":null,"logprobs":null}}]}}"""
+            yield bytes(string, "utf-8")
+            yield bytes("tok-o: 1", "utf-8")
 
 class MockSession():
 
@@ -38,7 +44,7 @@ class MockResponse():
 async def test_query_function():
     # First call
     output_length = 10
-    args = argparse.Namespace(output_length=output_length, model="CodeLlama-34B-AWQ")
+    args = argparse.Namespace(output_length=output_length, model="CodeLlama-34B-AWQ", backend="happy_vllm")
     prompt = "Hey !"
     async_generator = mock_streaming_response_content(args)
     query_input = QueryInput(prompt=prompt, internal_id=0)
@@ -53,7 +59,7 @@ async def test_query_function():
 
     # Another call
     output_length = 5
-    args = argparse.Namespace(output_length=output_length, model="CodeLlama-34B-AWQ")
+    args = argparse.Namespace(output_length=output_length, model="CodeLlama-34B-AWQ", backend="happy_vllm")
     prompt = "Hey !"
     async_generator = mock_streaming_response_content(args)
     query_input = QueryInput(prompt=prompt, internal_id=1)
@@ -64,3 +70,18 @@ async def test_query_function():
     assert len(results) == 2
     assert isinstance(results[1], QueryOutput)
     assert len(results[1].timestamp_of_tokens_arrival) == output_length
+
+    # mistral backend
+    output_length = 10
+    args = argparse.Namespace(output_length=output_length, model="mistral", backend="mistral")
+    prompt = "Hey !"
+    async_generator = mock_streaming_response_content(args)
+    query_input = QueryInput(prompt=prompt, internal_id=0)
+    results = []
+
+    session = MockSession(args)
+    await query_functions.query_function(query_input, session, "my_url", results=results,
+                    args=args)
+    assert len(results) == 1
+    assert isinstance(results[0], QueryOutput)
+    assert len(results[0].timestamp_of_tokens_arrival) == output_length
