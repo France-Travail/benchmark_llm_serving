@@ -64,7 +64,7 @@ async def get_benchmark_results_growing_requests(queries_dataset: List[QueryInpu
     async with aiohttp.ClientSession(connector=connector) as session:
         # Query the /metrics endpoint for one second before launching the first queries
         for i in range(int(1/args.step_live_metrics)):
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
             await asyncio.sleep(args.step_live_metrics)
         start_queries_timestamp = datetime.now().timestamp()
         # For a number of queries
@@ -80,14 +80,14 @@ async def get_benchmark_results_growing_requests(queries_dataset: List[QueryInpu
                 nb_queries_launched += n
                 # While we wait for the tasks to be done, we query the /metrics endpoint
                 while not tasks_are_done(tasks):
-                    asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+                    asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
                     await asyncio.sleep(args.step_live_metrics)
         if current_timestamp - start_queries_timestamp >= args.max_duration:
             now = get_now()
             logger.info(f"{now} Max duration {args.max_duration}s has been reached")
         # Query the /metrics endpoint for one second after launching the queries are done
         for i in range(int(1/args.step_live_metrics)):
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
             await asyncio.sleep(args.step_live_metrics)
     
     return results, all_live_metrics

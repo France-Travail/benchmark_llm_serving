@@ -102,7 +102,7 @@ async def get_benchmark_results_constant_number(queries_dataset: List[QueryInput
                    for _ in range(args.n_workers)]
         # Query the /metrics endpoint for one second before adding queries to the queue
         for i in range(int(1/args.step_live_metrics)):
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
             await asyncio.sleep(args.step_live_metrics)
         start_queries_timestamp = datetime.now().timestamp()
         # Add the queries to the queue
@@ -113,9 +113,9 @@ async def get_benchmark_results_constant_number(queries_dataset: List[QueryInput
             if continue_condition(current_timestamp, start_queries_timestamp, args, count_query):
                 # While the queue is full, periodically query the /metrics endpoint
                 while queue.full():
-                    asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+                    asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
                     await asyncio.sleep(args.step_live_metrics)
-                asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+                asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
                 await queue.put(query_input)
                 count_query += 1
         if current_timestamp - start_queries_timestamp >= args.max_duration:
@@ -123,12 +123,12 @@ async def get_benchmark_results_constant_number(queries_dataset: List[QueryInput
             logger.info(f"{now} Max duration {args.max_duration}s has been reached")
         # Wait for all enqueued items to be processed and during this time, periodically query the /metrics endpoint
         while not queue.empty():
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
             await asyncio.sleep(args.step_live_metrics)
         await queue.join()
         # Query the /metrics endpoint for one second after the queries finished
         for i in range(int(1/args.step_live_metrics)):
-            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, args))
+            asyncio.create_task(get_live_metrics(session, metrics_url, all_live_metrics, backend))
             await asyncio.sleep(args.step_live_metrics)
         
     # The workers are now idly waiting for the next queue item and we

@@ -1,8 +1,19 @@
+import os
 import pytest
 import argparse
+from pathlib import Path
 
 from benchmark_llm_serving import backends
+from benchmark_llm_serving import utils_metrics
 from benchmark_llm_serving.io_classes import QueryOutput, QueryInput
+
+
+def get_metrics_response():
+    current_directory = Path(os.path.dirname(os.path.realpath(__file__)))
+    metrics_response_file = current_directory / "data" / "metrics_response.txt"
+    with open(metrics_response_file, 'r') as txt_file:
+        metrics_response = txt_file.read()
+    return metrics_response
 
 
 def test_get_backend():
@@ -110,6 +121,18 @@ def test_backend_happy_vllm_add_prompt_length():
     assert output.prompt_length == 0
     backend.add_prompt_length(chunk_without_usage, output)
     assert output.prompt_length == 0
+
+
+def test_backend_happy_vllm_get_metrics_from_metrics_dict():
+    backend = backends.get_backend("happy_vllm")
+    metrics_response = get_metrics_response()
+    parsed_metrics = utils_metrics.parse_metrics_response(metrics_response)
+    live_metrics = backend.get_metrics_from_metrics_dict(parsed_metrics)
+    assert isinstance(live_metrics, dict)
+    assert set(live_metrics) == {"num_requests_running", "num_requests_waiting", "gpu_cache_usage_perc"}
+    assert live_metrics['num_requests_running'] == pytest.approx(2.0)
+    assert live_metrics['num_requests_waiting'] == pytest.approx(1.0)
+    assert live_metrics['gpu_cache_usage_perc'] == pytest.approx(4.2)
 
 
 def test_backend_mistral_get_payload():
