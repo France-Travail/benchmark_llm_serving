@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from benchmark_llm_serving import utils
+from benchmark_llm_serving.backends import get_backend, BackEnd
 
 logger = logging.getLogger("Making the graphs")
 logging.basicConfig(level=logging.INFO)
@@ -92,7 +93,7 @@ def make_prompt_ingestion_graph(files: dict, report_folder: str) -> None:
 
 def make_speed_generation_graph_for_one_input_output(input_length: int, output_length: int,
                                                      speed_generation_files: dict, report_folder: str,
-                                                     speed_threshold: float) -> dict:
+                                                     speed_threshold: float, backend: BackEnd) -> dict:
     """Draws the speed generation graph and save the corresponding data for a couple of
     input length/ output length. Also returns the corresponding speed and kv cache
     thresholds
@@ -103,6 +104,7 @@ def make_speed_generation_graph_for_one_input_output(input_length: int, output_l
         speed_generation_files (dict) : The file containing the results of the speed generation benchmarks
         report_folder (str) : The folder where the report should be written
         speed_threshold (float) : The accepted speed generation to fix the threshold
+        backend (BackEnd) : The backend
 
     Returns:
         dict : The accepted thresholds 
@@ -159,29 +161,37 @@ def make_speed_generation_graph_for_one_input_output(input_length: int, output_l
     # Figure definition
     fig, ax1 = plt.subplots()
     fig.subplots_adjust(right=0.75)
-    ax2 = ax1.twinx()
-    ax3 = ax1.twinx()
+    # Specify the type of ax2 and ax3 to avoid mypy errors
+    ax3: Any = ax1.twinx()
     ax3.spines.right.set_position(("axes", 1.1))
     fig.set_size_inches(18.5, 10.5)
     ax1.set_xlabel('Number of parallel requests', fontsize='14')
     ax1.set_ylabel('Speed generation (tokens per second)', fontsize='14')
-    ax2.set_ylabel('Max KV cache percentage', fontsize='14')
-    ax2.set_ylim([0, 1.0])
+    
     ax3.set_ylabel('Time to first token (ms)', fontsize='14')
+
+    if backend.backend_name == "happy_vllm":
+        ax2: Any = ax1.twinx()
+        ax2.set_ylabel('Max KV cache percentage', fontsize='14')
+        ax2.set_ylim((0, 1.0))
 
     # Speed generation plot
     speed_generation_graph = ax1.errorbar(parallel_requests_nbs, speed_generation_plot, 
                 yerr=[speed_generation_lower_percentiles, speed_generation_upper_percentiles],
                 fmt='b-o',
                 capsize=4, label="Speed generation")
-    # Max KV cache plot
-    max_kv_cache_graph = ax2.plot(parallel_requests_nbs, max_kv_cache, color='green', linestyle="--", label="Max KV cache")
+    if backend.backend_name == "happy_vllm":
+        # Max KV cache plot
+        max_kv_cache_graph = ax2.plot(parallel_requests_nbs, max_kv_cache, color='green', linestyle="--", label="Max KV cache")
     # Time to first token generation plot                
     time_to_first_token_generation_graph = ax3.errorbar(parallel_requests_nbs, time_to_first_token_plot, 
                 yerr=[time_to_first_token_lower_percentiles, time_to_first_token_upper_percentiles],
                 fmt='r-o',
                 capsize=4, label="Time to first token")
-    curves = [speed_generation_graph, max_kv_cache_graph[0], time_to_first_token_generation_graph]
+    if backend.backend_name == "happy_vllm":
+        curves = [speed_generation_graph, max_kv_cache_graph[0], time_to_first_token_generation_graph]
+    else:
+        curves = [speed_generation_graph, time_to_first_token_generation_graph]
     # Legend
     ax1.legend(
         handles=curves,
@@ -203,16 +213,19 @@ def make_speed_generation_graph_for_one_input_output(input_length: int, output_l
         max_requests_speed = max(speed_treshold_reached)
     else:
         max_requests_speed = 0
-    # KV cache threshold
-    kv_treshold_not_reached = [key for key, value in data_summary.items() if value["max_kv_cache"] < 0.95]
-    if len(kv_treshold_not_reached):
-        max_kv_cache_requests = max(kv_treshold_not_reached)
+    if backend.backend_name == "happy_vllm":
+        # KV cache threshold
+        kv_treshold_not_reached = [key for key, value in data_summary.items() if value["max_kv_cache"] < 0.95]
+        if len(kv_treshold_not_reached):
+            max_kv_cache_requests = max(kv_treshold_not_reached)
+        else:
+            max_kv_cache_requests = 0
+        return {"speed_threshold": max_requests_speed, "kv_cache_threshold": max_kv_cache_requests}
     else:
-        max_kv_cache_requests = 0
-    return {"speed_threshold": max_requests_speed, "kv_cache_threshold": max_kv_cache_requests}
+        return {"speed_threshold": max_requests_speed}
 
 
-def make_speed_generation_graphs(files: dict, report_folder: str, speed_threshold: float):
+def make_speed_generation_graphs(files: dict, report_folder: str, speed_threshold: float, backend: BackEnd):
     """Draws the speed generation graphs and save the corresponding data. Also saves the thresholds,
     namely the accepted number of parallel requests with a KV cache inferior to 1.0 and 
     a speed generation above the speed_threshold
@@ -221,6 +234,7 @@ def make_speed_generation_graphs(files: dict, report_folder: str, speed_threshol
         files (dict) : The files containing the results of the benchmarks
         report_folder (str) : The folder where the report should be written
         speed_threshold (float) : The accepted speed generation to fix the threshold
+        backend (BackEnd) : The backend
     """
     speed_generation_files = {key: value for key, value in files.items() if 'generation_speed' in key}
     thresholds = []
@@ -231,7 +245,7 @@ def make_speed_generation_graphs(files: dict, report_folder: str, speed_threshol
         input_output_couples.add((int(split_filename[3]), int(split_filename[5])))
     # Make speed generation graph for each couple and save the corresponding thresholds
     for input_length, output_length in input_output_couples:
-        thresholds_tmp = make_speed_generation_graph_for_one_input_output(input_length, output_length, speed_generation_files, report_folder, speed_threshold)
+        thresholds_tmp = make_speed_generation_graph_for_one_input_output(input_length, output_length, speed_generation_files, report_folder, speed_threshold, backend)
         thresholds_tmp['input_length'] = input_length
         thresholds_tmp['output_length'] = output_length
         thresholds.append(thresholds_tmp.copy())
@@ -269,12 +283,12 @@ def make_kv_cache_profile_graph_for_one_input_output(input_length: int, output_l
 
     # Figure definition
     fig, ax1 = plt.subplots()
-    ax2 = ax1.twinx()
+    ax2: Any = ax1.twinx()
     fig.set_size_inches(18.5, 10.5)
     ax1.set_xlabel('Time (in second)', fontsize='14')
     ax1.set_ylabel('Percentage KV cache', fontsize='14')
     ax2.set_ylabel('Requests number', fontsize='14')
-    ax1.set_ylim([0, 1.0])
+    ax1.set_ylim((0, 1.0))
     ax2.set_ylim(bottom=0, top=max(running+waiting)+1)
 
     # Plots the kv cache usage and running and waiting requests
@@ -409,7 +423,7 @@ def save_common_parameters(files: dict, report_folder: str, gpu_name: str):
 
 
 def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0, gpu_name: Union[str, None] = None,
-                         min_number_of_valid_queries: int = 50):
+                         min_number_of_valid_queries: int = 50, backend: Union[BackEnd, str] = "happy_vllm"):
     """Draws and saves all the graphs and corresponding data for benchmark results 
     obtained via bench_suite.py
 
@@ -417,12 +431,16 @@ def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0, gpu_
         output_folder (str) : The folder where the results of the benchmarks are
         speed_threshold (float) : The accepted speed generation to fix the threshold
         gpu_name (str) : The name of the gpu
+        backend (str) : The backend
     """
+    if isinstance(backend, str):
+        backend = get_backend(backend)
+
     # Manage output path
     if not os.path.isabs(output_folder):
         current_directory = Path(os.path.dirname(os.path.realpath(__file__)))
         grand_parent_directory = current_directory.parent.parent.absolute()
-        output_folder = os.path.join(grand_parent_directory, args.output_folder)
+        output_folder = os.path.join(grand_parent_directory, output_folder)
     raw_result_folder = os.path.join(output_folder, "raw_results")
 
     # Make report folder and subfolders
@@ -452,10 +470,11 @@ def draw_and_save_graphs(output_folder: str, speed_threshold: float = 20.0, gpu_
     make_prompt_ingestion_graph(files, report_folder)
     now = utils.get_now()
     logger.info(f"{now} Making speed generation graphs")
-    make_speed_generation_graphs(files, report_folder, speed_threshold)
-    now = utils.get_now()
-    logger.info(f"{now} Making kv cache profile graphs")
-    make_kv_cache_profile_graphs(files, report_folder)
+    make_speed_generation_graphs(files, report_folder, speed_threshold, backend)
+    if backend.backend_name == "happy_vllm":
+        now = utils.get_now()
+        logger.info(f"{now} Making kv cache profile graphs")
+        make_kv_cache_profile_graphs(files, report_folder)
     now = utils.get_now()
     logger.info(f"{now} Making total speed generation graph")
     make_total_speed_generation_graph(files, report_folder)
@@ -470,8 +489,9 @@ if __name__ == "__main__":
     parser.add_argument("--speed-threshold", type=float, default=20.0, help="Accepted threshold for generation speed")
     parser.add_argument("--gpu-name", help="The name of the GPU")
     parser.add_argument("--min-number-of-valid-queries", type=int, help="The minimal number of queries needed to consider a file for drawing the graphs")
+    parser.add_argument("--backend", type=str, default='happy_vllm', help="The backend")
     graph_settings = GraphsSettings()
     parser.set_defaults(**graph_settings.model_dump())
     args = parser.parse_args()
     draw_and_save_graphs(output_folder=args.output_folder, speed_threshold=args.speed_threshold, gpu_name=args.gpu_name,
-                        min_number_of_valid_queries=args.min_number_of_valid_queries)
+                        min_number_of_valid_queries=args.min_number_of_valid_queries, backend=args.backend)

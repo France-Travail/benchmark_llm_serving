@@ -146,17 +146,37 @@ def test_add_application_parameters():
             }
 
     args = argparse.Namespace(base_url="http://my_url", info_endpoint='/info_endpoint', launch_arguments_endpoint="/launch_arguments_endpoint")
+    # With model_name: None
+    parameters = {"first_parameter": "my_first_value", "model": "my_model", "model_name": None}
     with requests_mock.Mocker() as mocked:
         mocked.get('http://my_url/info_endpoint', json=mock_info_data)
         mocked.get('http://my_url/launch_arguments_endpoint', json=mock_launch_arguments_data)
-        parameters = {"first_parameter": "my_first_value", "model": "my_model"}
+        
         parameters = benchmark.add_application_parameters(parameters, args)
     assert parameters["first_parameter"] == "my_first_value"
     assert parameters["model"] == "my_model"
     assert parameters['happy_vllm_version'] == mock_info_data['version']
     assert parameters["vllm_version"] == mock_info_data["vllm_version"]
+    assert parameters["model_name"] == "Meta-Llama-3-8B-Instruct"
     for key, value in mock_launch_arguments_data.items():
-        if key != "model":
+        if key != "model"and key != "model_name":
+            assert parameters[key] == value
+    assert set(parameters) == {"first_parameter", "model", "happy_vllm_version", "vllm_version"}.union(set(mock_launch_arguments_data))
+
+    # With model_name: not None
+    parameters = {"first_parameter": "my_first_value", "model": "my_model", "model_name": "Hey"}
+    with requests_mock.Mocker() as mocked:
+        mocked.get('http://my_url/info_endpoint', json=mock_info_data)
+        mocked.get('http://my_url/launch_arguments_endpoint', json=mock_launch_arguments_data)
+        
+        parameters = benchmark.add_application_parameters(parameters, args)
+    assert parameters["first_parameter"] == "my_first_value"
+    assert parameters["model"] == "my_model"
+    assert parameters['happy_vllm_version'] == mock_info_data['version']
+    assert parameters["vllm_version"] == mock_info_data["vllm_version"]
+    assert parameters["model_name"] == "Hey"
+    for key, value in mock_launch_arguments_data.items():
+        if key != "model" and key != "model_name":
             assert parameters[key] == value
     assert set(parameters) == {"first_parameter", "model", "happy_vllm_version", "vllm_version"}.union(set(mock_launch_arguments_data))
 
@@ -179,21 +199,40 @@ def test_get_general_metrics():
     
     all_live_metrics = [{"num_requests_running": 1.0, "num_requests_waiting": 2.0, "gpu_cache_usage_perc": 30.0, "timestamp": 10000},
                         {"num_requests_running": 3.0, "num_requests_waiting": 0.0, "gpu_cache_usage_perc": 93.2, "timestamp": 11000}]
+    benchmark_results_valid = [query_output for query_output in benchmark_results if query_output.success or query_output.timeout]
+    total_waiting_time = sum([result.total_waiting_time for result in benchmark_results_valid])
+    
 
-    general_metrics = benchmark.get_general_metrics(benchmark_results, all_live_metrics)
-    benchmark_results = [query_output for query_output in benchmark_results if query_output.success or query_output.timeout]
-
-    total_waiting_time = sum([result.total_waiting_time for result in benchmark_results])
+    # happy_vllm backend
+    args = argparse.Namespace(backend="happy_vllm")
+    general_metrics = benchmark.get_general_metrics(benchmark_results, all_live_metrics, args)
     target_general_metrics = {"max_kv_cache": 93.2, "max_requests_running": 3.0, "max_requests_waiting": 2.0,
                               "total_number_of_queries": 4.0, "total_time": 9200, "total_time_from_first_token": 1100,
                               "total_number_of_ingested_tokens": 120, "total_number_of_generated_tokens": 60,
                               "nb_timeout_queries": 1, "nb_errored_queries": 2, "total_time_without_waiting_time": 9200-total_waiting_time}
     # Remove errored queries
-    
-    target_general_metrics["total_time_from_first_token"] = sum([result.completion_time_from_first_token for result in benchmark_results])                
+    target_general_metrics["total_time_from_first_token"] = sum([result.completion_time_from_first_token for result in benchmark_results_valid])                
     target_general_metrics["speed"] = target_general_metrics['total_number_of_generated_tokens'] / target_general_metrics['total_time']
     target_general_metrics["speed_from_first_token"] = target_general_metrics['total_number_of_generated_tokens'] / target_general_metrics['total_time_from_first_token']
     target_general_metrics["speed_without_waiting_time"] = target_general_metrics['total_number_of_generated_tokens'] / target_general_metrics['total_time_without_waiting_time']
+    
+    assert set(general_metrics) == set(target_general_metrics)
+    for key, value in target_general_metrics.items():
+        assert general_metrics[key] == pytest.approx(value)
+
+    # mistral backend
+    args = argparse.Namespace(backend="mistral")
+    general_metrics = benchmark.get_general_metrics(benchmark_results, all_live_metrics, args)
+    target_general_metrics = {"max_kv_cache": -1, "max_requests_running": -1, "max_requests_waiting": -1,
+                              "total_number_of_queries": 4.0, "total_time": 9200, "total_time_from_first_token": 1100,
+                              "total_number_of_ingested_tokens": 120, "total_number_of_generated_tokens": 60,
+                              "nb_timeout_queries": 1, "nb_errored_queries": 2, "total_time_without_waiting_time": 9200-total_waiting_time}
+    # Remove errored queries
+    target_general_metrics["total_time_from_first_token"] = sum([result.completion_time_from_first_token for result in benchmark_results_valid])                
+    target_general_metrics["speed"] = target_general_metrics['total_number_of_generated_tokens'] / target_general_metrics['total_time']
+    target_general_metrics["speed_from_first_token"] = target_general_metrics['total_number_of_generated_tokens'] / target_general_metrics['total_time_from_first_token']
+    target_general_metrics["speed_without_waiting_time"] = target_general_metrics['total_number_of_generated_tokens'] / target_general_metrics['total_time_without_waiting_time']
+    
     assert set(general_metrics) == set(target_general_metrics)
     for key, value in target_general_metrics.items():
         assert general_metrics[key] == pytest.approx(value)
