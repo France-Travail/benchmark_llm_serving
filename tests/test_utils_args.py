@@ -6,7 +6,7 @@ def test_get_parser_base_arguments():
     parser = utils_args.get_parser_base_arguments()
     base_arguments = {"--dataset-folder", "--base-url", "--host", "--port", "--step-live-metrics", "--max-queries",
                        "--completions-endpoint", "--metrics-endpoint", "--info-endpoint", "--launch-arguments-endpoint",
-                       "--backend", "--model", "--max-duration", "--min-duration", "--target-queries-nb", "--help", "-h", "--model-name"}
+                       "--backend", "--model", "--max-duration", "--min-duration", "--target-queries-nb", "--help", "-h", "--model-name", "--gpu-name"}
     assert set(parser.__dict__["_option_string_actions"]) == base_arguments
 
 
