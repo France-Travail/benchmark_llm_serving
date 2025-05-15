@@ -41,22 +41,24 @@ def get_max_tokens_in_kv_cache(output_folder: str) -> int:
     return int(np.median(max_tokens_in_kv_cache_list))
 
 
-def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str) -> MdUtils:
+def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str, result: dict) -> MdUtils:
     """Adds the summary section to the readme.
 
     Args:
         mdfile (MdUtils) : The future readme
         output_folder (str) : The folder which contain all the results
         report_folder (str) : The folder containing the report
-
+        result (dict) : The dictionnary to fill for .json file.
     Returns:
         MdUtils : The future readme
+        Dict : The dictionnary with metric informations for .json file.
     """
+    result["metrics"] = {}
+    
     prompt_ingestion_file = os.path.join(report_folder, "data", "prompt_ingestion_graph_data.json")
     with open(prompt_ingestion_file, 'r') as json_file:
         prompt_ingestion = json.load(json_file)
     
-
     # Summary table
     mdfile.new_header(level=1, title='Main metrics')
     mdfile.new_paragraph("The main metrics are summarized in the following table : ")
@@ -68,6 +70,7 @@ def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str)
     # Precision 250 tokens per second
     prompt_ingestion_speed = int(250 * (prompt_ingestion_speed//250))
     summary_data.extend(["Prompt ingestion speed", f"~{prompt_ingestion_speed} t/s "])
+    result["metrics"]["prompt_ingestion_speed"] = prompt_ingestion_speed
 
     # Speed generation
     speed_generation_filename = "speed_generation_graph_data_input_1024_output_128.json"
@@ -75,22 +78,27 @@ def add_summary_section(mdfile: MdUtils, output_folder: str, report_folder: str)
     with open(speed_generation_file, 'r') as json_file:
         speed_generation = json.load(json_file)
     speed_generation_value = int(speed_generation["10"]["speed_generation"][1])
+    result["metrics"]["speed_generation_value"] = speed_generation_value
+
     summary_data.extend(["Mean generation speed for 10 parallel requests with a prompt of 1024 tokens and 128 tokens generated",
                         f"~{speed_generation_value} t/s for each request"])
 
     # Max tokens in KV cache
     max_tokens_in_kv_cache = get_max_tokens_in_kv_cache(output_folder)
+    approximate_max_tokens_in_kv_cache = None
     if max_tokens_in_kv_cache == -1:
         summary_data.extend(["Estimate of the max nb of tokens in KV cache", "NA"])
+
     else:
         # Precision 25k tokens
         approximate_max_tokens_in_kv_cache = int(25 * (max_tokens_in_kv_cache // 25000))
         summary_data.extend(["Estimate of the max nb of tokens in KV cache", f"~{approximate_max_tokens_in_kv_cache}k tokens"])
-    
+
+    result["metrics"]["approximate_max_tokens_in_kv_cache"] = approximate_max_tokens_in_kv_cache
 
     mdfile.new_line()
     mdfile.new_table(columns=2, rows=len(summary_data)//2, text=summary_data, text_align='center')
-    return mdfile
+    return mdfile, result
 
 
 def add_total_generation_speed_section(mdfile: MdUtils) -> MdUtils:
@@ -136,28 +144,29 @@ def add_generation_speed_section(mdfile: MdUtils) -> MdUtils:
     return mdfile
 
 
-def add_parameters_section(mdfile: MdUtils, parameters: dict) -> MdUtils:
+def add_parameters_section(mdfile: MdUtils, parameters: dict, result: dict) -> MdUtils:
     """Adds the parameters section to the readme
 
     Args:
         mdfile (MdUtils) : The future readme
         parameters (dict) : The launch parameters
-
+        result (dict): : The dictionnary to fill for .json file.
     Returns:
         MdUtils : The future readme
+        Dict : The dictionnary with parameters informations for .json file.
     """
     # Parameters table
     mdfile.new_header(level=1, title='Parameters')
     mdfile.new_paragraph("The api from happy_vllm was launched using the following arguments : ")
     rows_nb = len(parameters) + 1
-
+    result["parameters"] = parameters
     table_data = ["Parameter", "Value"]
     for key, value in parameters.items():
         table_data.extend([key, value])
 
     mdfile.new_line()
     mdfile.new_table(columns=2, rows=rows_nb, text=table_data, text_align='center')
-    return mdfile
+    return mdfile, result
 
 
 def make_readme(output_folder: str) -> None:
@@ -168,20 +177,24 @@ def make_readme(output_folder: str) -> None:
     """
     report_folder = os.path.join(output_folder, "report")
     output_file = os.path.join(report_folder, "README.md")
+    json_file = os.path.join(report_folder, "result.json")
     parameters_file = os.path.join(report_folder, "parameters.json")
     with open(parameters_file, 'r') as json_file:
         parameters = json.load(json_file)
     
     model_name = parameters['model']
     gpu_name = parameters['gpu_name']
+    result = {}
 
 
     mdfile = MdUtils(file_name=output_file,title=f"Model card for {model_name} on {gpu_name}")
-    mdfile = add_summary_section(mdfile, output_folder, report_folder)
+    mdfile, result = add_summary_section(mdfile, output_folder, report_folder, result)
     mdfile = add_total_generation_speed_section(mdfile)
     mdfile = add_generation_speed_section(mdfile)
-    mdfile = add_parameters_section(mdfile, parameters)
+    mdfile, result = add_parameters_section(mdfile, parameters, result)
     mdfile.create_md_file()
+    with open(json_file, 'w') as jf:
+        json.dump(result, jf)
 
 
 if __name__ == "__main__":
