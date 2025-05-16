@@ -1,4 +1,5 @@
 import os
+import csv
 import json
 import argparse
 import numpy as np
@@ -179,6 +180,7 @@ def make_readme(output_folder: str) -> None:
     output_file = os.path.join(report_folder, "README.md")
     json_file = os.path.join(report_folder, "result.json")
     parameters_file = os.path.join(report_folder, "parameters.json")
+
     with open(parameters_file, 'r') as json_file:
         parameters = json.load(json_file)
     
@@ -193,6 +195,18 @@ def make_readme(output_folder: str) -> None:
     mdfile = add_generation_speed_section(mdfile)
     mdfile, result = add_parameters_section(mdfile, parameters, result)
     mdfile.create_md_file()
+
+    thresholds_file = os.path.join(report_folder, "thresholds.csv")
+
+    with open(thresholds_file, 'r') as csv_file:
+        reader = csv.DictReader(csv_file)
+        threshold_data = {hdr: [] for hdr in reader.fieldnames}
+        for row in reader:
+            for field in row:
+                threshold_data[field].append(row[field])
+
+    result["thresholds"] = threshold_data
+
     with open(json_file, 'w') as jf:
         json.dump(result, jf)
 
